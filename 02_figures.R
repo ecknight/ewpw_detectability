@@ -1,0 +1,451 @@
+options(scipen = 9999, max.print=2000)
+
+my.theme <- theme_classic() +
+  theme(text=element_text(size=12, family="Arial"),
+        axis.text.x=element_text(size=12),
+        axis.text.y=element_text(size=12),
+        axis.title.x=element_text(margin=margin(10,0,0,0)),
+        axis.title.y=element_text(margin=margin(0,10,0,0)),
+        axis.line.x=element_line(linetype=1),
+        axis.line.y=element_line(linetype=1),
+        legend.text=element_text(size=12),
+        legend.title=element_text(size=12),
+        plot.title=element_text(size=12, hjust = 0.5))
+
+#Load required R packages
+library(tidyverse)
+library(lubridate)
+library(usdm)
+library(GGally)
+library(unmarked)
+library(MuMIn)
+library(AICcmodavg)
+library(data.table)
+library(readxl)
+library(gridExtra)
+library(formatR)
+library(sf)
+library(ggmap)
+library(inauguration)
+library(nord)
+library(cowplot)
+library(patchwork)
+library(grid)
+
+load("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Analysisv7_workspace.Rdata")
+
+#Figure 1. Study area----
+
+#Remove sites with no detections
+load("/Users/ellyknight/Dropbox/SS/EWPW/EWPW occupancy analysis data.Rdata")
+
+sites <- df_analysis_occupancy %>% 
+  dplyr::filter(as.numeric(sunsetTimeSince) > 0,
+                as.numeric(sunriseTimeSince) < 0, 
+                Rec_minute <= 5) %>% 
+  group_by(SiteName, Year) %>% 
+  summarize(detections=sum(Occupied)) %>%  d
+  dplyr::filter(detections > 0) %>% 
+  ungroup() %>% 
+  left_join(df_analysis_occupancy) %>% 
+  dplyr::select(SiteName, Year, SongMeter, Latitude, Longitude) %>% 
+  unique()
+
+#1a. Map of North America----
+nam <- map_data("world", region=c("Canada", 
+                                  "USA", 
+                                  "Mexico",
+                                  "Guatemala", 
+                                  "Belize", 
+                                  "El Salvador",
+                                  "Honduras", 
+                                  "Nicaragua", 
+                                  "Costa Rica",
+                                  "Panama", 
+                                  "Jamaica", 
+                                  "Cuba", 
+                                  "The Bahamas",
+                                  "Haiti", 
+                                  "Dominican Republic", 
+                                  "Antigua and Barbuda",
+                                  "Dominica", 
+                                  "Saint Lucia", 
+                                  "Saint Vincent and the Grenadines", 
+                                  "Barbados",
+                                  "Grenada",
+                                  "Trinidad and Tobago")) %>% 
+  dplyr::filter(!group%in%c(258:264))
+
+nam.eq <- nam %>% 
+  st_as_sf(coords=c("long", "lat"), crs=4326) %>% 
+  st_transform(crs="+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs") %>%
+  st_coordinates() %>% 
+  data.frame() %>% 
+  cbind(nam)
+
+area.eq.center <- sites %>% 
+  st_as_sf(coords=c("Longitude", "Latitude"), crs=4326) %>% 
+  st_transform(crs="+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs") %>%
+  st_coordinates() %>% 
+  as.data.frame() %>% 
+  dplyr::summarize(X=mean(X),
+                   Y=mean(Y))
+#Read in EWPW range
+range <- read_sf("/Volumes/ECK004/GIS/Misc/BirdLifeRanges/EWPW.shp") %>% 
+  st_transform(crs="+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs") %>% 
+  dplyr::filter(SEASONAL==2)
+
+map.nam <- ggplot() +
+  geom_polygon(data=nam.eq, aes(x=X, y=Y, group=group), colour = "gray85", fill = "gray75", size=0.3) +
+  geom_sf(data=range, aes(fill=SCINAME), fill="grey50", colour="gray85") +
+  geom_text(label="★", aes(x=X, y=Y), size=10, family = "HiraKakuPro-W3", data=area.eq.center, colour="black") +
+  xlim(c(-4000000, 3000000)) +
+  coord_sf(datum = NA) +
+  xlab("") +
+  ylab("") +
+  my.theme +
+  theme(plot.margin = unit(c(0,0,-1,-1), "cm"),
+        legend.position="bottom")
+map.nam
+
+#1b. Study sites----
+sites.sf <- sites %>% 
+  st_as_sf(coords=c("Longitude", "Latitude"), crs=4326)
+
+#area.center <- sites.sf %>% 
+#  st_coordinates() %>% 
+#  as.data.frame() %>% 
+#  dplyr::summarize(X=mean(X),
+#                   Y=mean(Y))
+area.center <- data.frame(X=-77, Y=44.6)
+
+#Get background data
+register_google(key="AIzaSyCta9P4x7jGNELznpwlx07VZkkLVk3FP4M")
+
+map <- get_map(maptype="satellite", location=area.center, zoom=8, force=TRUE, color="color")
+
+map_attributes <- attributes(map)
+
+map_transparent <- matrix(adjustcolor(map, 
+                                      alpha.f = 0.8), 
+                          nrow = nrow(map))
+attributes(map_transparent) <- map_attributes
+
+#Plot site map
+map.sites <- ggmap(map_transparent) +
+  geom_point(aes(x = Longitude, y = Latitude,
+                 fill=factor(Year)),
+             data = sites, 
+             alpha = 1,
+             colour="grey85",
+             size=4,
+             shape=21) +
+  geom_text(label="Lake Ontario", aes(x=-77.5, y=43.6), size=5, colour="black") +
+  xlim(c(-78.1, -75.9)) +
+  ylim(c(43.5, 45.5)) +
+  scale_fill_manual(values=c("darkgoldenrod1", "tomato3"), name="Year surveyed") +
+  my.theme +
+  xlab("") +
+  ylab("") +
+  theme(plot.margin = unit(c(0,0,0,0), "cm"),
+        legend.position = "bottom")
+
+#1c. Put together----
+plot.sa <- map.sites +
+  inset_element(map.nam,
+                right=0.48,
+                bottom=0.6,
+                left=0.02,
+                top=0.98)
+#plot.sa
+
+ggsave(file="/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/Figure1StudyArea.jpeg", height=8, width=6, units="in", device="jpeg",
+       plot=plot.sa)
+
+#Figure 3. Evaluation results####
+
+results.eval <- r.rec %>% 
+  rename(rpres=r) %>% 
+  full_join(results.call) %>% 
+  dplyr::select(score, p, r, rpres) %>% 
+  pivot_longer(cols=p:rpres, names_to="metric", values_to="value")
+
+plot.eval <- ggplot(results.eval) +
+  geom_line(aes(x=score, y=value, colour=metric), size=2) +
+  geom_vline(aes(xintercept=60), linetype="dashed") +
+  scale_colour_manual(values=c("darkgoldenrod3", "#A8A8A8", "tomato4"), name="Evaluation metric",
+                      labels=c("Precision", "Recall", "Presence-absence recall")) +
+  xlab("Score threshold") +
+  ylab("Evaluation metric value") +
+  ylim(0, 1) +
+  my.theme
+plot.eval
+
+
+ggsave(plot.eval, file="/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/Fig3Evaluation.jpg", width=7, height=4, units="in", device="jpeg")
+
+#1e. Summary statistics----
+
+#Number of EWPW calls in test dataset
+sum(bench$Count)
+
+#Number of EWPW calls detected by recognizer
+sum(dat.test$ewpw)
+
+#Number of EWPW calls detected by recognizer with score threshold of 60
+dat.test %>% 
+  dplyr::filter(score >= 60) %>% 
+  summarize(ewpw=sum(ewpw))
+
+#Proportion of calls detected at score threshold of 60
+dat.test %>% 
+  dplyr::filter(score >= 60) %>% 
+  summarize(ewpw=sum(ewpw)/sum(bench$Count))
+
+#Number of recordings that EWPW is detected in
+dat.test %>% 
+  group_by(file) %>% 
+  summarize(ewpw=sum(ewpw),
+            ewpw=ifelse(ewpw>0, 1, 0)) %>% 
+  ungroup() %>% 
+  summarize(rec=sum(ewpw))
+
+#Number of recordings that EWPW is detected in at score threshold of 60
+dat.test %>% 
+  dplyr::filter(score >= 60) %>% 
+  group_by(file) %>% 
+  summarize(ewpw=sum(ewpw),
+            ewpw=ifelse(ewpw>0, 1, 0)) %>% 
+  ungroup() %>% 
+  summarize(rec=sum(ewpw))
+
+20/17 #Offset
+
+#Table 1. Model selection results----
+temp.dredge.all <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/TemporalCovariatesModelSelection.csv")
+
+temp.dredge.raw <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/TemporalCovariatesModelSelection_raw.csv") %>% 
+  arrange(mod, boot) %>% 
+  dplyr::filter(mod %in% c(27:32))
+
+temp.dredge.top <- temp.dredge.raw %>% 
+  group_by(boot) %>% 
+  top_n(1, wt=weight) %>% 
+  ungroup() %>% 
+  group_by(mod) %>% 
+  summarize(percent = n()/100) %>% 
+  arrange(-percent)
+
+temp.dredge.summary <- temp.dredge.raw %>% 
+  dplyr::select(mod, delta, weight) %>% 
+  group_by(mod) %>% 
+  summarize(wt.mn = mean(weight),
+            wt.sd = sd(weight),
+            d.mn = mean(delta),
+            d.sd = sd(delta)) %>% 
+  ungroup() %>% 
+  left_join(temp.dredge.top) %>% 
+  arrange(-wt.mn)
+
+weather.dredge.all <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/WeatherCovariatesModelSelection.csv")
+
+weather.dredge.raw <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/WeatherCovariatesModelSelection_raw.csv") %>% 
+  arrange(mod, boot) %>% 
+  dplyr::filter(mod %in% c(61, 62, 64, 34, 58, 57))
+
+weather.dredge.top <- weather.dredge.raw %>% 
+  group_by(boot) %>% 
+  top_n(1, wt=weight) %>% 
+  ungroup() %>% 
+  group_by(mod) %>% 
+  summarize(percent = n()/100) %>% 
+  arrange(-percent)
+
+weather.dredge.summary <- weather.dredge.raw %>% 
+  dplyr::select(mod, delta, weight) %>% 
+  group_by(mod) %>% 
+  summarize(wt.mn = mean(weight),
+            wt.sd = sd(weight),
+            d.mn = mean(delta),
+            d.sd = sd(delta)) %>% 
+  ungroup() %>% 
+  left_join(weather.dredge.top) %>% 
+  arrange(-wt.mn)
+View(weather.dredge.summary)
+
+
+#Figure 4. Covariate effects----
+
+mod.final.pred <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/FinalModelPredictions.csv")
+mod.final.pred.sum <- mod.final.pred %>% 
+  group_by(plot, moonalt, suntime, doy, wind, temp, psd2, s2n2) %>% 
+  summarize(det.mn = mean(Det),
+            se.mn = mean(DetSE),
+            up.mn = mean(DetUpper), 
+            lw.mn = mean(DetLower)) %>% 
+  ungroup()
+
+plot.moon <- ggplot(subset(mod.final.pred.sum, plot=="Moon altitude")) +
+  geom_line(aes(x=moonalt, y=det.mn), colour=nord_palettes$baie_mouton[1]) +
+  geom_ribbon(aes(x=moonalt, ymin=lw.mn, ymax=up.mn), alpha=0.5, fill=nord_palettes$baie_mouton[1]) +
+  ylim(c(0,1)) +
+  xlab("Moon altitude") +
+  my.theme +
+  theme(axis.title.y=element_blank())
+
+plot.suntime <- ggplot(subset(mod.final.pred.sum, plot=="Time since sunset (hrs)")) +
+  geom_line(aes(x=suntime, y=det.mn), colour=nord_palettes$baie_mouton[2]) +
+  geom_ribbon(aes(x=suntime, ymin=lw.mn, ymax=up.mn), alpha=0.5, fill=nord_palettes$baie_mouton[2]) +
+  ylim(c(0,1)) +
+  xlab("Time since sunset (hrs)") +
+  my.theme +
+  theme(axis.title.y=element_blank())
+
+plot.day <- ggplot(subset(mod.final.pred.sum, plot=="Day of year")) +
+  geom_line(aes(x=doy, y=det.mn), colour=nord_palettes$baie_mouton[3]) +
+  geom_ribbon(aes(x=doy, ymin=lw.mn, ymax=up.mn), alpha=0.5, fill=nord_palettes$baie_mouton[3]) +
+  ylim(c(0,1)) +
+  xlab("Day of year") +
+  my.theme +
+  theme(axis.title.y=element_blank())
+
+plot.wind <- ggplot(subset(mod.final.pred.sum, plot=="Wind speed (km/h)")) +
+  geom_line(aes(x=wind, y=det.mn), colour=nord_palettes$baie_mouton[4]) +
+  geom_ribbon(aes(x=wind, ymin=lw.mn, ymax=up.mn), alpha=0.5, fill=nord_palettes$baie_mouton[4]) +
+  ylim(c(0,1)) +
+  xlab("Wind speed (km/h)") +
+  my.theme +
+  theme(axis.title.y=element_blank())
+
+plot.temp <- ggplot(subset(mod.final.pred.sum, plot=="Temperature (C)")) +
+  geom_line(aes(x=temp, y=det.mn), colour=nord_palettes$baie_mouton[5]) +
+  geom_ribbon(aes(x=temp, ymin=lw.mn, ymax=up.mn), alpha=0.5, fill=nord_palettes$baie_mouton[5]) +
+  ylim(c(0,1)) +
+  xlab("Temperature (C)") +
+  my.theme +
+  theme(axis.title.y=element_blank())
+
+plot.psd <- ggplot(subset(mod.final.pred.sum, plot=="Power spectrum density")) +
+  geom_line(aes(x=psd2, y=det.mn), colour=nord_palettes$baie_mouton[6]) +
+  geom_ribbon(aes(x=psd2, ymin=lw.mn, ymax=up.mn), alpha=0.5, fill=nord_palettes$baie_mouton[6]) +
+  ylim(c(0,1)) +
+  xlab("Power spectrum density") +
+  my.theme +
+  theme(axis.title.y=element_blank())
+
+plot.s2n <- ggplot(subset(mod.final.pred.sum, plot=="Signal to noise ratio")) +
+  geom_line(aes(x=s2n2, y=det.mn), colour=nord_palettes$baie_mouton[7]) +
+  geom_ribbon(aes(x=s2n2, ymin=lw.mn, ymax=up.mn), alpha=0.5, fill=nord_palettes$baie_mouton[7]) +
+  ylim(c(0,1)) +
+  xlab("Signal to noise ratio") +
+  my.theme +
+  theme(axis.title.y=element_blank())
+
+#Put plots together
+plot.pred <- gridExtra::grid.arrange(plot.moon, plot.suntime, plot.day, plot.wind, plot.temp, plot.psd, plot.s2n,
+                                     ncol=4, nrow=2,
+                                     left = textGrob("EWPW detectability", rot = 90, vjust = 1))
+
+ggsave(plot.pred, file="/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/Fig4CovariatePredictions.jpg", width=12, height=6, units="in", device="jpeg")
+
+#Figure 5. Sampling effects----
+
+mod.pred <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/SamplingEffortResults.csv") %>% 
+  dplyr::filter(model=="cov")
+
+summary <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/SamplingEffortResults_summary.csv")
+
+gam.pred <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/GAMPredictions.csv")
+
+summary.sum <- summary %>% 
+  group_by(cov, length, visit, boot) %>% 
+  summarize(sites = sum(Occupied)/32) %>% 
+  ungroup()
+
+vline <- data.frame(xint=c(10, NA), cov=c("all", "constrained"))
+
+mod.pred$cov <- factor(mod.pred$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
+summary.sum$cov <- factor(summary.sum$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
+vline$cov <- factor(vline$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
+gam.pred$cov <- factor(gam.pred$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
+
+plot.occu <- ggplot(mod.pred) +
+  geom_ribbon(aes(x=visit, ymin=occu.lwr.mn, ymax=occu.upr.mn, fill=factor(length)), alpha=0.3) +
+  geom_line(aes(x=visit, y=occu.mn.mn, colour=factor(length)), size=1.5) +
+  geom_vline(aes(xintercept=xint), linetype="dashed", data=vline) +
+  scale_colour_nord("aurora", name="Recording\nlength\n(minutes)") + 
+  scale_fill_nord("aurora", name="Recording\nlength\n(minutes)") +
+  xlab("") +
+  ylab("Probability of occupancy") +
+#  xlim(c(1,10)) +
+  ylim(c(0,1)) +
+  my.theme +
+  facet_wrap(~cov, scales="free_x") +
+  theme(legend.position = "none",
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+plot.occu
+
+plot.det <- ggplot(mod.pred) +
+  geom_ribbon(aes(x=visit, ymin=det.lwr.mn, ymax=det.upr.mn, fill=factor(length)), alpha=0.3) +
+  geom_line(aes(x=visit, y=det.mn.mn, colour=factor(length)), size=1.5) +
+  geom_vline(aes(xintercept=xint), linetype="dashed", data=vline) +
+  scale_colour_nord("aurora", name="Recording\nlength\n(minutes)") + 
+  scale_fill_nord("aurora", name="Recording\nlength\n(minutes)") +
+  xlab("") +
+  ylab("Probability of detection") +
+#  xlim(c(1,10)) +
+  ylim(c(0,1)) +
+  my.theme +
+  facet_wrap(~cov, scales="free_x") +
+  theme(legend.position = "none")
+
+plot.detcumu <- ggplot() +
+  geom_jitter(aes(x=visit, y=sites, fill=factor(length)), shape=21, colour="grey50", data=summary.sum) +
+  geom_line(aes(x=visit, y=r, colour=factor(length)), data=gam.pred, size=1.5) +
+  geom_vline(aes(xintercept=xint), linetype="dashed", data=vline) +
+  scale_colour_nord("aurora", name="Recording\nlength\n(minutes)") + 
+  scale_fill_nord("aurora", name="Recording\nlength\n(minutes)") + 
+  xlab("Number of recordings") +
+  ylab("Cumulative probability of detection") +
+  #  xlim(c(1,10)) +
+  ylim(c(0,1)) +
+  my.theme +
+  facet_wrap(~cov, scales="free_x") +
+  theme(legend.position = "none",
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+plot.detcumu
+
+plot.legend <- ggplot(summary.sum) +
+  geom_point(aes(x=visit, y=sites, colour=factor(length), fill=factor(length))) +
+  geom_smooth(aes(x=visit, y=sites, colour=factor(length), fill=factor(length))) +
+  scale_colour_nord("aurora", name="Recording length (minutes)") + 
+  scale_fill_nord("aurora", name="Recording length (minutes)") +
+  xlab("Number of recordings") +
+  ylab("Cumulative probability of detection") +
+  #  xlim(c(1,10)) +
+  ylim(c(0,1)) +
+  my.theme +
+  facet_wrap(~cov, scales="free_x") +
+  theme(legend.position = "bottom")
+
+legend <- get_legend(plot.legend)
+
+ggsave(file="/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/Figure5SamplingEffort.jpeg", height=12, width=8, units="in", device="jpeg",
+       grid.arrange(plot.det, plot.occu, plot.detcumu, legend,
+                    widths = c(8),
+                    heights = c(4, 4, 4, 1),
+                    layout_matrix = rbind(c(1),
+                                          c(2),
+                                          c(3),
+                                          c(4))))
+
+#Summary stats
+mod.pred %>% 
+  group_by(cov) %>% 
+  summarize(mean=mean(det.mn.mn))
+
+mod.pred %>% 
+  group_by(cov) %>% 
+  summarize(mean=mean(occu.mn.mn))
