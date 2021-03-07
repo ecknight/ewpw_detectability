@@ -7,18 +7,6 @@
 
 options(scipen = 9999, max.print=2000)
 
-my.theme <- theme_classic() +
-  theme(text=element_text(size=12, family="Arial"),
-        axis.text.x=element_text(size=12),
-        axis.text.y=element_text(size=12),
-        axis.title.x=element_text(margin=margin(10,0,0,0)),
-        axis.title.y=element_text(margin=margin(0,10,0,0)),
-        axis.line.x=element_line(linetype=1),
-        axis.line.y=element_line(linetype=1),
-        legend.text=element_text(size=12),
-        legend.title=element_text(size=12),
-        plot.title=element_text(size=12, hjust = 0.5))
-
 #Load required R packages
 library(tidyverse)
 library(lubridate)
@@ -40,8 +28,20 @@ library(lme4)
 library(merTools)
 library(mgcv)
 
+my.theme <- theme_classic() +
+  theme(text=element_text(size=12, family="Arial"),
+        axis.text.x=element_text(size=12),
+        axis.text.y=element_text(size=12),
+        axis.title.x=element_text(margin=margin(10,0,0,0)),
+        axis.title.y=element_text(margin=margin(0,10,0,0)),
+        axis.line.x=element_line(linetype=1),
+        axis.line.y=element_line(linetype=1),
+        legend.text=element_text(size=12),
+        legend.title=element_text(size=12),
+        plot.title=element_text(size=12, hjust = 0.5))
+
 #Load data
-load("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Analysisv7_workspace.Rdata")
+load("Analysisv7_workspace.Rdata")
 
 #SECTION 1. Recognizer evaluation####
  
@@ -222,7 +222,7 @@ appendix1 <- table(recordings.time$SiteName, recordings.time$Hour_rec_1min) %>%
   arrange(Year, TotalMinutes) %>% 
   dplyr::select(-TotalRecordings)
 
-write.csv(appendix1, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/Appendix1.csv", row.names = FALSE)
+write.csv(appendix1, "Appendix1.csv", row.names = FALSE)
 
 #Total # of recording minutes
 sum(appendix1$TotalMinutes)
@@ -504,7 +504,7 @@ for(i in 1:boot){
 #Summarize bootstrapped models
 temp.dredge.raw <- rbindlist(temp.dredge.list)
 
-write.csv(temp.dredge.raw, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/TemporalCovariatesModelSelection_raw.csv", row.names=FALSE)
+write.csv(temp.dredge.raw, "TemporalCovariatesModelSelection_raw.csv", row.names=FALSE)
 
 temp.dredge.mn <- rbindlist(temp.dredge.list) %>% 
   group_by(mod) %>% 
@@ -524,7 +524,7 @@ temp.dredge.sd
 
 temp.dredge.all <- rbind(temp.dredge.mn, temp.dredge.sd)
 
-write.csv(temp.dredge.all, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/TemporalCovariatesModelSelection.csv", row.names=FALSE)
+write.csv(temp.dredge.all, "TemporalCovariatesModelSelection.csv", row.names=FALSE)
 
 temp.dredge.top <- temp.dredge.all %>% 
   head(1) %>% 
@@ -536,7 +536,7 @@ temp.dredge.top
 
 weather.dredge.raw <- rbindlist(weather.dredge.list)
 
-write.csv(weather.dredge.raw, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/WeatherCovariatesModelSelection_raw.csv", row.names=FALSE)
+write.csv(weather.dredge.raw, "WeatherCovariatesModelSelection_raw.csv", row.names=FALSE)
 
 weather.dredge.mn <- rbindlist(weather.dredge.list) %>% 
   group_by(mod) %>% 
@@ -556,7 +556,7 @@ weather.dredge.sd
 
 weather.dredge.all <- rbind(weather.dredge.mn, weather.dredge.sd)
 
-write.csv(weather.dredge.all, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/WeatherCovariatesModelSelection.csv", row.names=FALSE)
+write.csv(weather.dredge.all, "WeatherCovariatesModelSelection.csv", row.names=FALSE)
 
 weather.dredge.top <- weather.dredge.all %>% 
   head(1) %>% 
@@ -804,7 +804,7 @@ mod.final.coeff.sum <- mod.final.coeff %>%
   ungroup()
 mod.final.coeff.sum
 
-write.csv(mod.final.coeff, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/FinalModelCoefficients.csv", row.names = FALSE)
+write.csv(mod.final.coeff, "FinalModelCoefficients.csv", row.names = FALSE)
 
 
 #Summarize model predictions
@@ -817,7 +817,7 @@ mod.final.pred.sum <- mod.final.pred %>%
             lw.mn = mean(DetLower)) %>% 
   ungroup()
 
-write.csv(mod.final.pred, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/FinalModelPredictions.csv", row.names = FALSE)
+write.csv(mod.final.pred, "FinalModelPredictions.csv", row.names = FALSE)
 
 ##3e. Plot final model####
 plot.moon <- ggplot(subset(mod.final.pred, plot=="Moon altitude")) +
@@ -1121,7 +1121,7 @@ mod.any.cov.pred <- rbindlist(mod.any.cov.pred.list2) %>%
 
 mod.any.pred <- rbind(mod.any.cov.pred, mod.any.null.pred)
 
-write.csv(mod.any.pred, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/UnrestrictedModelResults.csv", row.names = FALSE)
+write.csv(mod.any.pred, "UnrestrictedModelResults.csv", row.names = FALSE)
 
 #4b. Constrain covariates####
 
@@ -1402,7 +1402,7 @@ mod.any.pred <- rbind(mod.any.cov.pred, mod.any.null.pred) %>%
 
 mod.pred <- rbind(mod.prot.pred, mod.any.pred)
 
-write.csv(mod.pred, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/SamplingEffortResults.csv", row.names = FALSE)
+write.csv(mod.pred, "SamplingEffortResults.csv", row.names = FALSE)
 
 #Summary results
 summary <- rbind(summary.any %>% 
@@ -1439,9 +1439,11 @@ ggplot(summary.sum, aes(x=visit, y=sites, colour=factor(length), linetype=cov)) 
   xlim(c(0,10))
 
 
-write.csv(summary, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/SamplingEffortResults_Summary.csv", row.names = FALSE)
+write.csv(summary, "SamplingEffortResults_Summary.csv", row.names = FALSE)
 
-#4c. Model cmulative probability of detection----
+#4c. Model cumulative probability of detection----
+
+#4ci. Try GAMs----
 
 length <- c(1:5)
 
@@ -1553,9 +1555,78 @@ ggplot(gam.coeff) +
            position = "dodge") +
   facet_wrap(~var)
 
-write.csv(gam.pred, "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/GAMPredictions.csv", row.names = FALSE)
+write.csv(gam.pred, "GAMPredictions.csv", row.names = FALSE)
 
-save.image("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Analysisv7_workspace.Rdata")
+#4cii. Logistic glmm----
+
+#Compare constrained and unconstrained
+summary.10 <- summary %>% 
+  dplyr::filter(visit<=10)
+
+table(summary.10$cov) #Good, equal samples
+
+mod.glmm <- glmer(Occupied ~ visit*length + visit*cov + length*cov + (1|SiteName), data=summary.10, family="binomial")
+summary(mod.glmm)
+
+newdat <- expand.grid(length = c(1:5), visit = c(1:10), cov=c("all", "constrained"))
+
+pred.glmm <- data.frame(pred=predict(mod.glmm, newdata = newdat, type="response", re.form=NA, se.fit=TRUE)) %>% 
+  cbind(newdat)
+
+ggplot(pred.glmm) +
+  geom_line(aes(x=visit, y=pred, colour=factor(length), linetype=cov))
+
+#4c. Logistic growth curve for unconstrained only----
+length <- c(1:5)
+visit <- c(1:30, 40, 50, 60, 70, 80, 90, 100)
+
+mod.cumu.any.visit.list <- list()
+pred.any.visit.list <- list()
+pred.asym.list <- list()
+for(i in 1:length(length)){
+  
+  length.i <- length[i]
+  
+  summary.sum.any.i <- summary.sum.any %>% 
+    dplyr::filter(length==length.i)
+  
+  mod.cumu.any.i <- nls(sites ~ SSlogis(visit, Asym, xmid, scal), data = summary.sum.any.i)
+  mod.cumu.any.visit.list[[i]] <- data.frame(summary(mod.cumu.any.i)$coefficients) %>% 
+    mutate(length=length[i],
+           var=row.names(summary(mod.cumu.any.i)$coefficients))
+  
+  #Fit growth curve to new data
+  newdat <- data.frame(visit=seq(min(summary.sum.any.i$visit), max(summary.sum.any.i$visit),
+                                 length.out = 100))
+  
+  pred.any.visit.list[[i]] <- data.frame(
+    r=predict(newdata = newdat, object = mod.cumu.any.i),
+    visit=newdat$visit) %>% 
+    mutate(length=length[i])
+  
+  #Find asymptote
+  asym <- round(environment(mod.cumu.any.i[["m"]][["fitted"]])[["env"]][["Asym"]], 3)
+  ls.sum <- pred.any.visit.list[[i]] %>%
+    mutate(r = round(r, digits = 3)) %>% filter(r >= 0.99 * asym)
+  pred.asym.list[[i]] <- data.frame(asym=asym,
+                                    n = round(min(ls.sum$visit),-1),
+                                    length=length[i])
+  
+}
+
+mod.cumu.any.visit <- rbindlist(mod.cumu.any.visit.list)
+pred.any.visit <- rbindlist(pred.any.visit.list)
+pred.asym <- rbindlist(pred.asym.list)
+
+ggplot() +
+  geom_jitter(data=summary.sum.any, aes(x=visit, y=sites, group=factor(length))) +
+  geom_line(data=pred.any.visit, aes(x=visit, y=r, colour=factor(length))) +
+  geom_vline(data=pred.asym, aes(xintercept=n, colour=factor(length)), linetype="dashed") +
+  ylim(c(0,1))
+
+
+
+
 
 #SECTION 5. Canadian Nightjar Survey analysis----
 
@@ -1824,3 +1895,5 @@ pred.cns <- data.frame(predict(mod.cns, newdata=data.frame(length=6), se.fit=TRU
          lwr.adj = p.adj - se.fit*1.96*offset.rec*offset.aru,
          upr.adj = p.adj + se.fit*1.96*offset.rec*offset.aru)
 pred.cns
+
+save.image("Analysisv7_workspace.Rdata")
