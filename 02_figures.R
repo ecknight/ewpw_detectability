@@ -31,6 +31,8 @@ library(nord)
 library(cowplot)
 library(patchwork)
 library(grid)
+library(ggspatial)
+library(ggsn)
 
 load("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Analysisv7_workspace.Rdata")
 
@@ -44,7 +46,7 @@ sites <- df_analysis_occupancy %>%
                 as.numeric(sunriseTimeSince) < 0, 
                 Rec_minute <= 5) %>% 
   group_by(SiteName, Year) %>% 
-  summarize(detections=sum(Occupied)) %>%  d
+  summarize(detections=sum(Occupied)) %>%  
   dplyr::filter(detections > 0) %>% 
   ungroup() %>% 
   left_join(df_analysis_occupancy) %>% 
@@ -133,14 +135,25 @@ attributes(map_transparent) <- map_attributes
 
 #Plot site map
 map.sites <- ggmap(map_transparent) +
-  geom_point(aes(x = Longitude, y = Latitude,
-                 fill=factor(Year)),
-             data = sites, 
-             alpha = 1,
-             colour="grey85",
-             size=4,
-             shape=21) +
+  geom_spatial_point(aes(x = Longitude, y = Latitude,
+                         fill=factor(Year)),
+                     data = sites, 
+                     crs=4326,
+                     alpha = 1,
+                     colour="grey85",
+                     size=4,
+                     shape=21) +
   geom_text(label="Lake Ontario", aes(x=-77.5, y=43.6), size=5, colour="black") +
+  ggspatial::annotation_north_arrow(location = "tr",
+                                    style = ggspatial::north_arrow_orienteering(fill = c("grey80", "grey20"), line_col = "grey20")) +
+  ggsn::scalebar(x.min = -76.9, x.max = -76, 
+                 y.min = 43.53, y.max = 43.8, 
+                 transform=TRUE, model="WGS84",
+                 dist=25, dist_unit="km",
+                 box.fill=c("grey80", "grey20"),
+                 box.color="grey20",
+                 height=0.1,
+                 st.bottom=TRUE, st.dist=0.15) +
   xlim(c(-78.1, -75.9)) +
   ylim(c(43.5, 45.5)) +
   scale_fill_manual(values=c("darkgoldenrod1", "tomato3"), name="Year surveyed") +
@@ -149,6 +162,7 @@ map.sites <- ggmap(map_transparent) +
   ylab("") +
   theme(plot.margin = unit(c(0,0,0,0), "cm"),
         legend.position = "bottom")
+#map.sites
 
 #1c. Put together----
 plot.sa <- map.sites +
@@ -159,7 +173,7 @@ plot.sa <- map.sites +
                 top=0.98)
 #plot.sa
 
-ggsave(file="/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/Figure1StudyArea.jpeg", height=8, width=6, units="in", device="jpeg",
+ggsave(file="Figures/Figure1StudyArea.jpeg", height=8, width=6, units="in", device="jpeg",
        plot=plot.sa)
 
 #Figure 3. Evaluation results####
