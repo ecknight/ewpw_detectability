@@ -1443,121 +1443,7 @@ write.csv(summary, "SamplingEffortResults_Summary.csv", row.names = FALSE)
 
 #4c. Model cumulative probability of detection----
 
-#4ci. Try GAMs----
-
-length <- c(1:5)
-
-#Unconstrained
-dev.any.list <- list()
-coeff.any.list <- list()
-pred.any.list <- list()
-for(i in 1:length(length)){
-  
-  length.i <- length[i]
-  
-  summary.sum.any.i <- summary.sum.any %>% 
-    dplyr::filter(length==length.i)
-  
-  mod.any.i <- gam(sites ~ s(visit, k=5, bs = 'cs'), data=summary.sum.any.i, method="REML")
-  
-  #Save out coefficients and intercept
-  dev.any.list[[i]] <- data.frame(summary(mod.any.i)[["dev.expl"]]) %>% 
-    mutate(length=length[i])
-  coeff.any.list[[i]] <- data.frame(mod.any.i[["coefficients"]]) %>% 
-    mutate(length=length[i],
-           var=names(mod.any.i[["coefficients"]]))
-  
-  #Fit to new data
-  newdat <- data.frame(visit=seq(0, max(summary.sum.any.i$visit),
-                  length.out = 100))
-  
-  pred.any.list[[i]] <- data.frame(
-    r=predict(newdata = newdat, object = mod.any.i),
-    visit=newdat$visit) %>% 
-    mutate(length=length[i])
-
-}
-
-dev.any <- rbindlist(dev.any.list)
-colnames(dev.any) <- c("deviance", "length")
-coeff.any <- rbindlist(coeff.any.list)
-colnames(coeff.any) <- c("value", "length", "var")
-pred.any <- rbindlist(pred.any.list)
-
-#Visualize
-ggplot() +
-  geom_jitter(data=summary.sum.any, aes(x=visit, y=sites, group=factor(length))) +
-  geom_line(data=pred.any, aes(x=visit, y=r, colour=factor(length))) +
-#  xlim(c(0,10)) +
-  ylim(c(0,1))
-
-#Constrained
-dev.prot.list <- list()
-coeff.prot.list <- list()
-pred.prot.list <- list()
-for(i in 1:length(length)){
-  
-  length.i <- length[i]
-  
-  summary.sum.prot.i <- summary.sum.prot %>% 
-    dplyr::filter(length==length.i)
-  
-  mod.prot.i <- gam(sites ~ s(visit, k=5, bs = 'cs'), data=summary.sum.prot.i, method="REML")
-  
-  #Save out coefficients and intercept
-  dev.prot.list[[i]] <- data.frame(summary(mod.prot.i)[["dev.expl"]]) %>% 
-    mutate(length=length[i])
-  coeff.prot.list[[i]] <- data.frame(mod.prot.i[["coefficients"]]) %>% 
-    mutate(length=length[i],
-           var=names(mod.prot.i[["coefficients"]]))
-  
-  #Fit to new data
-  newdat <- data.frame(visit=seq(0, max(summary.sum.prot.i$visit),
-                                 length.out = 100))
-  
-  pred.prot.list[[i]] <- data.frame(
-    r=predict(newdata = newdat, object = mod.prot.i),
-    visit=newdat$visit) %>% 
-    mutate(length=length[i])
-  
-}
-
-dev.prot <- rbindlist(dev.prot.list)
-colnames(dev.prot) <- c("deviance", "length")
-coeff.prot <- rbindlist(coeff.prot.list)
-colnames(coeff.prot) <- c("value", "length", "var")
-pred.prot <- rbindlist(pred.prot.list)
-
-#Visualize
-ggplot() +
-  geom_jitter(data=summary.sum.prot, aes(x=visit, y=sites, group=factor(length))) +
-  geom_line(data=pred.prot, aes(x=visit, y=r, colour=factor(length))) +
-  #  xlim(c(0,10)) +
-  ylim(c(0,1))
-
-gam.dev <- rbind
-gam.dev
-
-gam.coeff <- rbind((coeff.prot %>% 
-                    mutate(cov="constrained")),
-                 (coeff.any %>% 
-                    mutate(cov="all"))) %>% 
-  arrange(var, cov, length)
-
-gam.pred<- rbind((pred.prot %>% 
-                      mutate(cov="constrained")),
-                   (pred.any %>% 
-                      mutate(cov="all")))
-
-ggplot(gam.coeff) +
-  geom_col(aes(x=length, y=value, fill=cov),
-           width = 0.45,
-           position = "dodge") +
-  facet_wrap(~var)
-
-write.csv(gam.pred, "GAMPredictions.csv", row.names = FALSE)
-
-#4cii. Logistic glmm----
+#4ci. Logistic glmm----
 
 #Compare constrained and unconstrained
 summary.10 <- summary %>% 
@@ -1568,15 +1454,24 @@ table(summary.10$cov) #Good, equal samples
 mod.glmm <- glmer(Occupied ~ visit*length + visit*cov + length*cov + (1|SiteName), data=summary.10, family="binomial")
 summary(mod.glmm)
 
-newdat <- expand.grid(length = c(1:5), visit = c(1:10), cov=c("all", "constrained"))
+newdat <- expand.grid(length = c(1:5), visit = c(1:10), cov=c("all", "constrained"),
+                      SiteName=unique(summary.10$SiteName))
 
-pred.glmm <- data.frame(pred=predict(mod.glmm, newdata = newdat, type="response", re.form=NA, se.fit=TRUE)) %>% 
+pred <- predictInterval(mod.glmm, newdata = newdat, which="fixed", n.sims = 1000, type="probability", level=0.95) %>% 
   cbind(newdat)
 
-ggplot(pred.glmm) +
-  geom_line(aes(x=visit, y=pred, colour=factor(length), linetype=cov))
+pred.glmm <- data.frame(pred=predict(mod.glmm, newdata = newdat, type="response", re.form=NA)) %>% 
+  cbind(newdat) %>% 
+  cbind(predictInterval(mod.glmm, newdata = newdat, which="fixed", n.sims = 1000, type="probability", level=0.95))
 
-#4c. Logistic growth curve for unconstrained only----
+ggplot(pred.glmm) +
+  geom_ribbon(aes(x=visit, ymin=lwr, ymax=upr, group=factor(length)), alpha=0.2) +
+  geom_line(aes(x=visit, y=pred, colour=factor(length), linetype=cov)) +
+  facet_wrap(~cov)
+
+write.csv(pred.glmm, "Figures/GLMMPredictions.csv", row.names = FALSE)
+
+#4cii. Logistic growth curve for unconstrained only----
 length <- c(1:5)
 visit <- c(1:30, 40, 50, 60, 70, 80, 90, 100)
 
@@ -1609,7 +1504,7 @@ for(i in 1:length(length)){
   ls.sum <- pred.any.visit.list[[i]] %>%
     mutate(r = round(r, digits = 3)) %>% filter(r >= 0.99 * asym)
   pred.asym.list[[i]] <- data.frame(asym=asym,
-                                    n = round(min(ls.sum$visit),-1),
+                                    n = round(min(ls.sum$visit)),
                                     length=length[i])
   
 }
@@ -1624,9 +1519,9 @@ ggplot() +
   geom_vline(data=pred.asym, aes(xintercept=n, colour=factor(length)), linetype="dashed") +
   ylim(c(0,1))
 
-
-
-
+write.csv(pred.any.visit, "NLSPredictions.csv", row.names = FALSE)
+write.csv(summary.sum.any, "NLSData.csv", row.names = FALSE)
+write.csv(pred.asym, "NLSAsymptotes.csv", row.names = FALSE)
 
 #SECTION 5. Canadian Nightjar Survey analysis----
 
