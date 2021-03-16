@@ -376,9 +376,9 @@ summary.sum <- summary %>%
 
 vline <- data.frame(xint=c(10, NA), cov=c("all", "constrained"))
 
-mod.pred$cov <- factor(mod.pred$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
-summary.sum$cov <- factor(summary.sum$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
-vline$cov <- factor(vline$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
+mod.pred$cov <- factor(mod.pred$cov, levels=c("all", "constrained"), labels=c("Unconstrained", "Constrained"))
+summary.sum$cov <- factor(summary.sum$cov, levels=c("all", "constrained"), labels=c("Unconstrained", "Constrained"))
+vline$cov <- factor(vline$cov, levels=c("all", "constrained"), labels=c("Unconstrained", "Constrained"))
 
 plot.occu <- ggplot(mod.pred) +
   geom_ribbon(aes(x=visit, ymin=occu.lwr.mn, ymax=occu.upr.mn, fill=factor(length)), alpha=0.3) +
