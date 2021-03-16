@@ -147,7 +147,7 @@ map.sites <- ggmap(map_transparent) +
   ggspatial::annotation_north_arrow(location = "tr",
                                     style = ggspatial::north_arrow_orienteering(fill = c("grey80", "grey20"), line_col = "grey20")) +
   ggsn::scalebar(x.min = -76.9, x.max = -76, 
-                 y.min = 43.53, y.max = 43.8, 
+                 y.min = 43.55, y.max = 43.8, 
                  transform=TRUE, model="WGS84",
                  dist=25, dist_unit="km",
                  box.fill=c("grey80", "grey20"),
@@ -364,12 +364,10 @@ ggsave(plot.pred, file="/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing
 
 #Figure 5. Sampling effects----
 
-mod.pred <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/SamplingEffortResults.csv") %>% 
+mod.pred <- read.csv("Figures/SamplingEffortResults.csv") %>% 
   dplyr::filter(model=="cov")
 
-summary <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/SamplingEffortResults_summary.csv")
-
-gam.pred <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/GAMPredictions.csv")
+summary <- read.csv("Figures/SamplingEffortResults_summary.csv")
 
 summary.sum <- summary %>% 
   group_by(cov, length, visit, boot) %>% 
@@ -381,7 +379,6 @@ vline <- data.frame(xint=c(10, NA), cov=c("all", "constrained"))
 mod.pred$cov <- factor(mod.pred$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
 summary.sum$cov <- factor(summary.sum$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
 vline$cov <- factor(vline$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
-gam.pred$cov <- factor(gam.pred$cov, levels=c("all", "constrained"), labels=c("All recordings", "Optimal detectability recordings only"))
 
 plot.occu <- ggplot(mod.pred) +
   geom_ribbon(aes(x=visit, ymin=occu.lwr.mn, ymax=occu.upr.mn, fill=factor(length)), alpha=0.3) +
@@ -389,7 +386,7 @@ plot.occu <- ggplot(mod.pred) +
   geom_vline(aes(xintercept=xint), linetype="dashed", data=vline) +
   scale_colour_nord("aurora", name="Recording\nlength\n(minutes)") + 
   scale_fill_nord("aurora", name="Recording\nlength\n(minutes)") +
-  xlab("") +
+  xlab("Number of recordings") +
   ylab("Probability of occupancy") +
 #  xlim(c(1,10)) +
   ylim(c(0,1)) +
@@ -413,23 +410,7 @@ plot.det <- ggplot(mod.pred) +
   my.theme +
   facet_wrap(~cov, scales="free_x") +
   theme(legend.position = "none")
-
-plot.detcumu <- ggplot() +
-  geom_jitter(aes(x=visit, y=sites, fill=factor(length)), shape=21, colour="grey50", data=summary.sum) +
-  geom_line(aes(x=visit, y=r, colour=factor(length)), data=gam.pred, size=1.5) +
-  geom_vline(aes(xintercept=xint), linetype="dashed", data=vline) +
-  scale_colour_nord("aurora", name="Recording\nlength\n(minutes)") + 
-  scale_fill_nord("aurora", name="Recording\nlength\n(minutes)") + 
-  xlab("Number of recordings") +
-  ylab("Cumulative probability of detection") +
-  #  xlim(c(1,10)) +
-  ylim(c(0,1)) +
-  my.theme +
-  facet_wrap(~cov, scales="free_x") +
-  theme(legend.position = "none",
-        strip.background = element_blank(),
-        strip.text.x = element_blank())
-plot.detcumu
+plot.det
 
 plot.legend <- ggplot(summary.sum) +
   geom_point(aes(x=visit, y=sites, colour=factor(length), fill=factor(length))) +
@@ -446,14 +427,52 @@ plot.legend <- ggplot(summary.sum) +
 
 legend <- get_legend(plot.legend)
 
-ggsave(file="/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/Figure5SamplingEffort.jpeg", height=12, width=8, units="in", device="jpeg",
-       grid.arrange(plot.det, plot.occu, plot.detcumu, legend,
+ggsave(file="Figures/Fig5OccupancySamplingEffort.jpeg", height=8, width=8, units="in", device="jpeg",
+       grid.arrange(plot.det, plot.occu, legend,
                     widths = c(8),
-                    heights = c(4, 4, 4, 1),
+                    heights = c(4, 4, 1),
                     layout_matrix = rbind(c(1),
                                           c(2),
-                                          c(3),
-                                          c(4))))
+                                          c(3))))
+
+#Figure 6. Cumulative detection probability comparison----
+
+pred.glmm <- read.csv("Figures/GLMMPredictions.csv")
+
+plot.glmm <- ggplot(pred.glmm) +
+  geom_ribbon(aes(x=visit, ymin=lwr, ymax=upr, fill=factor(length)), alpha=0.2, data=subset(pred.glmm, cov=="all")) +
+  geom_line(aes(x=visit, y=pred, colour=factor(length), linetype=cov)) +
+  scale_colour_nord("aurora", name="Recording length\n(minutes)") + 
+  scale_fill_nord("aurora", name="Recording length\n(minutes)") +
+  scale_linetype_discrete(name="Recording selection", labels=c("Unconstrained", "Constrained")) +
+  scale_x_continuous(breaks=c(0,2,4,6,8,10)) +
+  xlab("Number of recordings") +
+  ylab("Cumulative probability of detection") +
+  my.theme
+
+ggsave(plot.glmm, file="Figures/Fig6CumulativeProbabilityComparison.jpeg", height=4, width=6, units="in", device="jpeg")
+
+#Figure 7. Logistic Growth curve----
+
+pred.any.visit <- read.csv("NLSPredictions.csv")
+summary.sum.any <- read.csv("NLSData.csv")
+pred.asym <- read.csv("NLSAsymptotes.csv") %>% 
+  rbind(data.frame(asym=rep(0,5), n=read.csv("NLSAsymptotes.csv")$n, length=c(1:5))) %>% 
+  mutate(linetype="Sample size for asymptote",
+         asym.99 = asym*0.99)
+
+plot.nls <- ggplot() +
+  geom_jitter(data=summary.sum.any, aes(x=visit, y=sites, colour=factor(length))) +
+  geom_line(data=pred.any.visit, aes(x=visit, y=r, colour=factor(length))) +
+  geom_line(data=pred.asym, aes(x=n, y=asym.99, colour=factor(length), linetype=linetype)) +
+  scale_colour_nord("aurora", name="Recording length\n(minutes)") + 
+  scale_linetype_manual(name="", labels=c("Sample size\nfor asymptote"), values=c("dashed")) +
+  ylim(c(0,1)) +
+  xlab("Number of recordings") +
+  ylab("Cumulative probability of detection") +
+  my.theme
+
+ggsave(plot.nls, file="Figures/Fig7CumulativeProbabilityNLS.jpeg", height=4, width=6, units="in", device="jpeg")
 
 #Summary stats
 mod.pred %>% 
