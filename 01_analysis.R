@@ -271,7 +271,7 @@ sd(detections.site$DetectsPerRecMinute)
 #Summarize by recording
 dat <- df_analysis %>% 
   inner_join(duration) %>% 
-  dplyr::filter(Rec_minute <= 5) %>% 
+  dplyr::filter(str_sub(SiteName, 1, 3)!="PEP", Rec_minute <= 10) %>% 
   mutate(moonUp = ifelse(moonUp=="Y", 1, 0)) %>% 
   group_by(SiteName, Latitude, Longitude, Year, Yday, Date, Recording, Duration, Time_rec) %>% 
   summarize(detectionsRecording = sum(Occupied),
@@ -333,7 +333,6 @@ ggplot(dat, aes(x=band2_psd, y=Occupied)) +
 ggplot(dat, aes(x=band2_s2n, y=Occupied)) +
   geom_hex() + 
   geom_smooth()
-
 
 ##3b. Check for VIF & correlation####
  
