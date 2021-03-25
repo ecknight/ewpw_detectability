@@ -1,16 +1,8 @@
-options(scipen = 9999, max.print=2000)
+#title: "Figures for refining surveys for nocturnal birds using acoustic data: Eastern Whip-poor-will"
+#author: "Elly C. Knight"
+#date: "February 15, 2021"
 
-my.theme <- theme_classic() +
-  theme(text=element_text(size=12, family="Arial"),
-        axis.text.x=element_text(size=12),
-        axis.text.y=element_text(size=12),
-        axis.title.x=element_text(margin=margin(10,0,0,0)),
-        axis.title.y=element_text(margin=margin(0,10,0,0)),
-        axis.line.x=element_line(linetype=1),
-        axis.line.y=element_line(linetype=1),
-        legend.text=element_text(size=12),
-        legend.title=element_text(size=12),
-        plot.title=element_text(size=12, hjust = 0.5))
+options(scipen = 9999, max.print=2000)
 
 #Load required R packages
 library(tidyverse)
@@ -34,7 +26,20 @@ library(grid)
 library(ggspatial)
 library(ggsn)
 
-load("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Analysisv7_workspace.Rdata")
+my.theme <- theme_classic() +
+  theme(text=element_text(size=12, family="Arial"),
+        axis.text.x=element_text(size=12),
+        axis.text.y=element_text(size=12),
+        axis.title.x=element_text(margin=margin(10,0,0,0)),
+        axis.title.y=element_text(margin=margin(0,10,0,0)),
+        axis.line.x=element_line(linetype=1),
+        axis.line.y=element_line(linetype=1),
+        legend.text=element_text(size=12),
+        legend.title=element_text(size=12),
+        plot.title=element_text(size=12, hjust = 0.5))
+
+load("Analysisv7_workspace.Rdata")
+
 
 #Figure 1. Study area----
 
@@ -185,7 +190,7 @@ results.eval <- r.rec %>%
   pivot_longer(cols=p:rpres, names_to="metric", values_to="value")
 
 plot.eval <- ggplot(results.eval) +
-  geom_line(aes(x=score, y=value, colour=metric), size=2) +
+  geom_line(aes(x=score, y=value, colour=metric), size=1) +
   geom_vline(aes(xintercept=60), linetype="dashed") +
   scale_colour_manual(values=c("darkgoldenrod3", "#A8A8A8", "tomato4"), name="Evaluation metric",
                       labels=c("Precision", "Recall", "Presence-absence recall")) +
@@ -196,7 +201,7 @@ plot.eval <- ggplot(results.eval) +
 plot.eval
 
 
-ggsave(plot.eval, file="/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/Fig3Evaluation.jpg", width=7, height=4, units="in", device="jpeg")
+ggsave(plot.eval, file="Figures/Fig3Evaluation.jpg", width=7, height=4, units="in", device="jpeg")
 
 #1e. Summary statistics----
 
@@ -382,7 +387,7 @@ vline$cov <- factor(vline$cov, levels=c("all", "constrained"), labels=c("Unconst
 
 plot.occu <- ggplot(mod.pred) +
   geom_ribbon(aes(x=visit, ymin=occu.lwr.mn, ymax=occu.upr.mn, fill=factor(length)), alpha=0.3) +
-  geom_line(aes(x=visit, y=occu.mn.mn, colour=factor(length)), size=1.5) +
+  geom_line(aes(x=visit, y=occu.mn.mn, colour=factor(length)), size=1) +
   geom_vline(aes(xintercept=xint), linetype="dashed", data=vline) +
   scale_colour_nord("aurora", name="Recording\nlength\n(minutes)") + 
   scale_fill_nord("aurora", name="Recording\nlength\n(minutes)") +
@@ -399,7 +404,7 @@ plot.occu
 
 plot.det <- ggplot(mod.pred) +
   geom_ribbon(aes(x=visit, ymin=det.lwr.mn, ymax=det.upr.mn, fill=factor(length)), alpha=0.3) +
-  geom_line(aes(x=visit, y=det.mn.mn, colour=factor(length)), size=1.5) +
+  geom_line(aes(x=visit, y=det.mn.mn, colour=factor(length)), size=1) +
   geom_vline(aes(xintercept=xint), linetype="dashed", data=vline) +
   scale_colour_nord("aurora", name="Recording\nlength\n(minutes)") + 
   scale_fill_nord("aurora", name="Recording\nlength\n(minutes)") +
@@ -469,7 +474,7 @@ plot.nls <- ggplot() +
   scale_linetype_manual(name="", labels=c("Sample size\nfor asymptote"), values=c("dashed")) +
   ylim(c(0,1)) +
   xlab("Number of recordings") +
-  ylab("Cumulative probability of detection") +
+  ylab("Cumulative proportion of sites with detections") +
   my.theme
 
 ggsave(plot.nls, file="Figures/Fig7CumulativeProbabilityNLS.jpeg", height=4, width=6, units="in", device="jpeg")

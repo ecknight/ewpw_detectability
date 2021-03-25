@@ -1,5 +1,4 @@
-
-#title: "Refining surveys for nocturnal birds using acoustic data: Eastern Whip-poor-will interim report"
+#title: "Refining surveys for nocturnal birds using acoustic data: Eastern Whip-poor-will"
 #author: "Elly C. Knight"
 #date: "December 17, 2020"
  
@@ -133,7 +132,7 @@ sites <- df_analysis_occupancy %>%
   dplyr::filter(detections > 0) %>% 
   ungroup() %>% 
   left_join(df_analysis_occupancy) %>% 
-  dplyr::select(SiteName, Year, SongMeter, Latitude, Longitude) %>% 
+  dplyr::select(SiteName, Year, SongMeter, Latitude, Longitude, detections) %>% 
   unique()
 
 #filter to just the data used in analysis
