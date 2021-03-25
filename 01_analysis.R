@@ -1,7 +1,7 @@
 #title: "Refining surveys for nocturnal birds using acoustic data: Eastern Whip-poor-will"
 #author: "Elly C. Knight"
 #date: "December 17, 2020"
- 
+
 #Preamble#####
 
 options(scipen = 9999, max.print=2000)
@@ -43,7 +43,7 @@ my.theme <- theme_classic() +
 load("Analysisv7_workspace.Rdata")
 
 #SECTION 1. Recognizer evaluation####
- 
+
 ##1a. Prepare data####
 
 #Read in and summarize benchmark data (human listener processed)
@@ -146,7 +146,7 @@ df_analysis <- df_analysis_occupancy %>%
   ungroup() %>% 
   dplyr::filter(Rec_length==5) %>% 
   dplyr::filter(SiteName %in% sites$SiteName)
- 
+
 ## 2a. Precision of recognizer####
 
 #Wrangle raw validated text files from SongScope
@@ -171,12 +171,12 @@ val.raw <- rbindlist(val.list) %>%
 #Summarize raw validated data
 #True positives
 tp <- nrow(val.raw %>% 
-       dplyr::filter(validation==1))
+             dplyr::filter(validation==1))
 tp
 
 # False positives
 fp <- nrow(val.raw %>% 
-       dplyr::filter(validation==0))
+             dplyr::filter(validation==0))
 fp
 
 # Precision
@@ -195,7 +195,7 @@ table(recordings$ID, recordings$Duration)
 #Time and date of recordings per location
 recordings.time <- df_analysis %>% 
   mutate(ID=paste0(Year, "-", SiteName)) %>% 
-#  dplyr::filter(Rec_minute <= 5) %>% 
+  #  dplyr::filter(Rec_minute <= 5) %>% 
   group_by(Year, ID, SiteName, Recording, Hour_rec_1min, Date) %>% 
   summarize(Duration = max(Rec_minute),
             Occupied = ifelse(sum(Occupied) > 0, 1, 0)) %>% 
@@ -238,7 +238,7 @@ detections.rec <- df_analysis %>%
   ungroup()
 summary(detections.rec)
 sd(detections.rec$Num_detects)
- 
+
 #Summarize by site
 detections.site <- df_analysis %>% 
   group_by(Year, SiteName) %>% 
@@ -271,7 +271,7 @@ sd(detections.site$DetectsPerRecMinute)
 #Summarize by recording
 dat <- df_analysis %>% 
   inner_join(duration) %>% 
-  dplyr::filter(str_sub(SiteName, 1, 3)!="PEP", Rec_minute <= 10) %>% 
+  dplyr::filter(Rec_minute <= 5) %>% 
   mutate(moonUp = ifelse(moonUp=="Y", 1, 0)) %>% 
   group_by(SiteName, Latitude, Longitude, Year, Yday, Date, Recording, Duration, Time_rec) %>% 
   summarize(detectionsRecording = sum(Occupied),
@@ -334,8 +334,9 @@ ggplot(dat, aes(x=band2_s2n, y=Occupied)) +
   geom_hex() + 
   geom_smooth()
 
+
 ##3b. Check for VIF & correlation####
- 
+
 #Check VIF & correlation
 covs <- dat %>% 
   dplyr::select(Yday, sunsetTimeSince, moon_fraction, moon_altitude, temp, total_rain, wind_spd, band1_psd, band2_psd, band1_s2n, band2_s2n) %>% 
@@ -365,14 +366,14 @@ boot <- 100
 #Start for loop
 for(i in 1:boot){
   
-#Subsample data
+  #Subsample data
   dat.sub <- dat %>% 
     group_by(SiteName) %>% 
     sample_n(50, replace=TRUE) %>%
     ungroup() %>% 
     unique()
   
-#Format for occupancy
+  #Format for occupancy
   detections <- dat.sub %>% 
     dplyr::select(SiteName, n, Occupied) %>% 
     spread(key = n, value = Occupied) %>% 
@@ -468,7 +469,7 @@ for(i in 1:boot){
   
   dat.occ <- unmarkedFrameOccu(detections, siteCovs=site.cov, obsCovs=obs.cov)
   
-#Fit models
+  #Fit models
   
   #Temporal first
   mod.temp <- occu(~ moonfrac*moonalt + doy + suntime + I(suntime^2)
@@ -493,7 +494,7 @@ for(i in 1:boot){
       mutate(boot=i,
              mod=row.names(weather.dredge))
   }
-
+  
   
   print(paste0("Finished bootstrap ", i, " of ", boot))
   
@@ -565,16 +566,16 @@ weather.dredge.top
 #Select psd2, ps2n2, temp, temp^2, wind (everything but rain)
 
 ##3d. Fit final model####
- 
+
 #Create new data for model prediction in loop
 moondat <- expand.grid(moonalt=seq(round(min(dat$moon_altitude), -1), max(dat$moon_altitude), 0.1),
-                      suntime=mean(dat$sunsetTimeSince),
-                      doy=min(dat$Yday),
-                      wind=min(dat$wind_spd),
-                      rain=min(dat$total_rain),
-                      temp=mean(dat$temp),
-                      psd2=min(dat$band2_psd),
-                      s2n2=min(dat$band2_s2n))
+                       suntime=mean(dat$sunsetTimeSince),
+                       doy=min(dat$Yday),
+                       wind=min(dat$wind_spd),
+                       rain=min(dat$total_rain),
+                       temp=mean(dat$temp),
+                       psd2=min(dat$band2_psd),
+                       s2n2=min(dat$band2_s2n))
 
 suntimedat <- expand.grid(moonalt=max(dat$moon_altitude),
                           suntime=seq(round(min(dat$sunsetTimeSince), -1), max(dat$sunsetTimeSince), 1),
@@ -641,14 +642,14 @@ boot <- 100
 #Start for loop
 for(i in 1:boot){
   
-#Sample data
+  #Sample data
   dat.sub <- dat %>% 
     group_by(SiteName) %>% 
     sample_n(50, replace=TRUE) %>%
     ungroup() %>% 
     unique()
   
-#Format for occupancy  
+  #Format for occupancy  
   detections <- dat.sub %>% 
     dplyr::select(SiteName, n, Occupied) %>% 
     spread(key = n, value = Occupied) %>% 
@@ -744,14 +745,14 @@ for(i in 1:boot){
   
   dat.occ <- unmarkedFrameOccu(detections, siteCovs=site.cov, obsCovs=obs.cov)
   
-#Fit model 
+  #Fit model 
   mod.final <- occu(~ moonalt + suntime + I(suntime^2) + doy + temp + I(temp^2) + wind + psd2 + s2n2
                     ~1,
                     data=dat.occ)
   
   #Save coefficient estimates
   invisible({capture.output({
-  mod.final.coeff.list[[i]] <- summary(mod.final)[['det']] %>% 
+    mod.final.coeff.list[[i]] <- summary(mod.final)[['det']] %>% 
       mutate(boot=i,
              var=row.names(data.frame(mod.final@estimates@estimates[["det"]]@estimates)))
   })})
@@ -768,7 +769,7 @@ for(i in 1:boot){
     rbind(winddat %>% 
             cbind(predict(mod.final, type="det", newdata=winddat)) %>% 
             dplyr::rename(Det=Predicted, DetSE=SE, DetLower=lower, DetUpper=upper) %>% 
-          mutate(plot="Wind speed (km/h)")) %>% 
+            mutate(plot="Wind speed (km/h)")) %>% 
     rbind(tempdat %>% 
             cbind(predict(mod.final, type="det", newdata=tempdat)) %>% 
             dplyr::rename(Det=Predicted, DetSE=SE, DetLower=lower, DetUpper=upper) %>% 
@@ -820,7 +821,7 @@ write.csv(mod.final.pred, "FinalModelPredictions.csv", row.names = FALSE)
 ##3e. Plot final model####
 plot.moon <- ggplot(subset(mod.final.pred, plot=="Moon altitude")) +
   geom_line(aes(x=moonalt, y=det.mn), colour="blue") +
-    geom_ribbon(aes(x=moonalt, ymin=lw.mn, ymax=up.mn), alpha=0.5) +
+  geom_ribbon(aes(x=moonalt, ymin=lw.mn, ymax=up.mn), alpha=0.5) +
   ylim(c(0,1)) +
   xlab("Moon altitude") +
   ylab("EWPW detectability")
@@ -918,7 +919,7 @@ for(h in 1:nrow(protocol)){
       ungroup() %>% 
       unique() %>% 
       data.frame()
-      
+    
     #Format for occupancy  
     Occupied <- dat.sub %>% 
       dplyr::select(SiteName, n, Occupied) %>% 
@@ -1010,8 +1011,8 @@ for(h in 1:nrow(protocol)){
     
     #Fit null model
     mod.any.null <- try(occu(~ 1
-                      ~1,
-                      data=dat.occ))
+                             ~1,
+                             data=dat.occ))
     
     #Predict on new data
     if(class(mod.any.null)[1]=="unmarkedFitOccu"){
@@ -1035,8 +1036,8 @@ for(h in 1:nrow(protocol)){
     
     #Fit covariate model
     mod.any.cov <- try(occu(~ moon_altitude + sunsetTimeSince + I(sunsetTimeSince^2) + Yday + temp + I(temp^2) + band2_psd + band2_s2n
-                          ~1,
-                          data=dat.occ))
+                            ~1,
+                            data=dat.occ))
     
     #Predict on new data
     if(class(mod.any.cov)[1]=="unmarkedFitOccu"){
@@ -1084,7 +1085,7 @@ for(h in 1:nrow(protocol)){
            visit=visit.h)
   
   print(paste0("Finished protocol combination ", h, " of ", nrow(protocol)))
-
+  
 }
 
 mod.any.null.pred <- rbindlist(mod.any.null.pred.list2) %>% 
@@ -1432,7 +1433,7 @@ ggplot(summary.sum, aes(x=visit, y=sites, colour=factor(length))) +
   xlim(c(0,10))
 
 ggplot(summary.sum, aes(x=visit, y=sites, colour=factor(length), linetype=cov)) +
-#  geom_jitter() +
+  #  geom_jitter() +
   geom_smooth(method="loess") +
   xlim(c(0,10))
 
@@ -1521,9 +1522,276 @@ write.csv(pred.any.visit, "NLSPredictions.csv", row.names = FALSE)
 write.csv(summary.sum.any, "NLSData.csv", row.names = FALSE)
 write.csv(pred.asym, "NLSAsymptotes.csv", row.names = FALSE)
 
-#SECTION 5. Canadian Nightjar Survey analysis----
+#SECTION 5. Recording length----
+#4a. No constraints on covariates----
 
-#Option A: Full analysis-----
+#Set number of bootstraps  
+boot <- 100
+
+#Set protocol options
+length <- c(1:10)
+visit <- seq(1, 100, 10)
+
+protocol <- expand.grid(length=length, visit=visit)
+
+#Create lists to save out results
+mod.10.null.pred.list1 <- list()
+mod.10.null.pred.list2 <- list()
+mod.10.cov.pred.list1 <- list()
+mod.10.cov.pred.list2 <- list()
+summary.10 <- data.frame()
+
+for(h in 1:nrow(protocol)){
+  
+  #Set protocol for this set
+  length.h <- protocol$length[h]
+  visit.h <- protocol$visit[h]
+  
+  #Wrangle data
+  dat.h <- df %>% 
+    inner_join(duration) %>% 
+    dplyr::filter(str_sub(SiteName, 1, 3)!="PEP", Rec_minute <= length.h) %>% 
+    mutate(moonUp = ifelse(moonUp=="Y", 1, 0)) %>% 
+    group_by(SiteName, Latitude, Longitude, Year, Yday, Date, Recording, Duration, Time_rec) %>% 
+    summarize(detectionsRecording = sum(Occupied),
+              sunsetTimeSince = mean(as.numeric(sunsetTimeSince)),
+              moon_fraction = mean(moon_fraction),
+              moon_altitude = mean(moon_altitude),
+              temp = mean(temp),
+              wind_spd = mean(wind_spd),
+              total_rain = mean(total_rain),
+              moonUp = round(mean(moonUp)),
+              band1_psd = mean(band1_psd),
+              band1_s2n = mean(band1_s2n),
+              band2_psd = mean(band2_psd),
+              band2_s2n = mean(band2_s2n),
+              Abundance_recording=mean(Abundance_recording),
+              Abundance_site=mean(Abundance_site)) %>% 
+    mutate(Occupied = ifelse(detectionsRecording > 0, 1, 0),
+           moonUp_altitude = ifelse(moonUp==1, moon_altitude, 0)) %>% 
+    dplyr::filter(!is.na(total_rain),
+                  !is.na(band1_psd)) %>% 
+    group_by(SiteName, Year) %>% 
+    arrange(Recording) %>% 
+    mutate(n=row_number()) %>% 
+    ungroup()
+  
+  #Start for loop
+  for(i in 1:boot){
+    
+    #Sample data
+    dat.sub <- dat.h %>% 
+      group_by(SiteName) %>% 
+      sample_n(visit.h, replace=TRUE) %>%
+      ungroup() %>% 
+      unique() %>% 
+      data.frame()
+    
+    #Format for occupancy  
+    Occupied <- dat.sub %>% 
+      dplyr::select(SiteName, n, Occupied) %>% 
+      spread(key = n, value = Occupied) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    Abundance_site <- dat.sub %>% 
+      dplyr::select(SiteName, n, Abundance_site) %>% 
+      spread(key = n, value = Abundance_site) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    Abundance_recording <- dat.sub %>% 
+      dplyr::select(SiteName, n, Abundance_recording) %>% 
+      spread(key = n, value = Abundance_recording) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    Yday <- dat.sub %>% 
+      dplyr::select(SiteName, n, Yday) %>% 
+      spread(key = n, value = Yday) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    sunsetTimeSince <- dat.sub %>% 
+      dplyr::select(SiteName, n, sunsetTimeSince) %>% 
+      spread(key = n, value = sunsetTimeSince) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    moon_altitude <- dat.sub %>% 
+      dplyr::select(SiteName, n, moon_altitude) %>% 
+      spread(key = n, value = moon_altitude) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    temp <- dat.sub %>% 
+      dplyr::select(SiteName, n, temp) %>% 
+      spread(key = n, value = temp) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    total_rain <- dat.sub %>% 
+      dplyr::select(SiteName, n, total_rain) %>% 
+      spread(key = n, value = total_rain) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    wind_spd <- dat.sub %>% 
+      dplyr::select(SiteName, n, wind_spd) %>% 
+      spread(key = n, value = wind_spd) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    band2_psd <- dat.sub %>% 
+      dplyr::select(SiteName, n, band2_psd) %>% 
+      spread(key = n, value = band2_psd) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    band2_s2n <- dat.sub %>% 
+      dplyr::select(SiteName, n, band2_s2n) %>% 
+      spread(key = n, value = band2_s2n) %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    obs.cov <- list(Yday=Yday, sunsetTimeSince=sunsetTimeSince, moon_altitude=moon_altitude, temp=temp, total_rain=total_rain, wind_spd=wind_spd, band2_psd=band2_psd, band2_s2n=band2_s2n, Abundance_site=Abundance_site, Abundance_recording=Abundance_recording)
+    
+    site.cov <- dat.sub %>% 
+      dplyr::select(SiteName, Latitude, Longitude) %>% 
+      unique() %>% 
+      arrange(SiteName) %>% 
+      dplyr::select(-SiteName) %>% 
+      data.frame()
+    
+    dat.occ <- unmarkedFrameOccu(Occupied, siteCovs=site.cov, obsCovs=obs.cov)
+    
+    #Fit null model
+    mod.10.null <- try(occu(~ 1
+                             ~1,
+                             data=dat.occ))
+    
+    #Predict on new data
+    if(class(mod.10.null)[1]=="unmarkedFitOccu"){
+      
+      mod.10.null.pred.list1[[i]] <- dat.sub %>% 
+        cbind(predict(mod.10.null, type="det", newdata=dat.sub)) %>% 
+        dplyr::rename(Det=Predicted, DetSE=SE, DetLower=lower, DetUpper=upper) %>% 
+        cbind(predict(mod.10.null, type="state", newdata=dat.sub)) %>% 
+        dplyr::rename(Occu=Predicted, OccuSE=SE, OccuLower=lower, OccuUpper=upper) %>% 
+        unique() %>% 
+        summarize(occu.mn.mn=mean(Occu, na.rm=TRUE),
+                  occu.mn.sd=sd(Occu, na.rm=TRUE),
+                  occu.lwr.mn=mean(OccuLower, na.rm=TRUE),
+                  occu.upr.mn=mean(OccuUpper, na.rm=TRUE),
+                  det.mn.mn=mean(Det, na.rm=TRUE),
+                  det.mn.sd=sd(Det, na.rm=TRUE),
+                  det.lwr.mn=mean(DetLower, na.rm=TRUE),
+                  det.upr.mn=mean(DetUpper, na.rm=TRUE)) %>% 
+        mutate(boot=i)
+    }
+    
+    #Fit covariate model
+    mod.10.cov <- try(occu(~ moon_altitude + sunsetTimeSince + I(sunsetTimeSince^2) + Yday + temp + I(temp^2) + band2_psd + band2_s2n
+                            ~1,
+                            data=dat.occ))
+    
+    #Predict on new data
+    if(class(mod.10.cov)[1]=="unmarkedFitOccu"){
+      
+      mod.10.cov.pred.list1[[i]] <- dat.sub %>% 
+        cbind(predict(mod.10.cov, type="det", newdata=dat.sub)) %>% 
+        dplyr::rename(Det=Predicted, DetSE=SE, DetLower=lower, DetUpper=upper) %>% 
+        cbind(predict(mod.10.cov, type="state", newdata=dat.sub)) %>% 
+        dplyr::rename(Occu=Predicted, OccuSE=SE, OccuLower=lower, OccuUpper=upper) %>% 
+        unique() %>% 
+        summarize(occu.mn.mn=mean(Occu, na.rm=TRUE),
+                  occu.mn.sd=sd(Occu, na.rm=TRUE),
+                  occu.lwr.mn=mean(OccuLower, na.rm=TRUE),
+                  occu.upr.mn=mean(OccuUpper, na.rm=TRUE),
+                  det.mn.mn=mean(Det, na.rm=TRUE),
+                  det.mn.sd=sd(Det, na.rm=TRUE),
+                  det.lwr.mn=mean(DetLower, na.rm=TRUE),
+                  det.upr.mn=mean(DetUpper, na.rm=TRUE)) %>% 
+        mutate(boot=i)
+      
+    }
+    
+    #Summarize detections by site
+    summary.10 <- dat.sub %>% 
+      group_by(SiteName) %>% 
+      summarize(Occupied_minutes = sum(Occupied),
+                Occupied = ifelse(Occupied_minutes > 0, 1, 0)) %>% 
+      ungroup() %>% 
+      mutate(boot=i,
+             length=length.h,
+             visit=visit.h) %>% 
+      rbind(summary.10)
+    
+    #Report status
+    print(paste0("Finished bootstrap ", i, " of ", boot))
+  }
+  
+  #Summarize occupancy & detectability estimates
+  mod.10.null.pred.list2[[h]] <- rbindlist(mod.10.null.pred.list1) %>% 
+    mutate(length=length.h,
+           visit=visit.h)
+  
+  mod.10.cov.pred.list2[[h]] <- rbindlist(mod.10.cov.pred.list1) %>% 
+    mutate(length=length.h,
+           visit=visit.h)
+  
+  print(paste0("Finished protocol combination ", h, " of ", nrow(protocol)))
+  
+}
+
+mod.10.null.pred <- rbindlist(mod.10.null.pred.list2) %>% 
+  dplyr::filter(!is.na(occu.mn.mn)) %>% 
+  group_by(length, visit) %>% 
+  summarize(occu.mn.mn=mean(occu.mn.mn, na.rm=TRUE),
+            occu.mn.sd=sd(occu.mn.mn, na.rm=TRUE),
+            occu.lwr.mn=mean(occu.lwr.mn, na.rm=TRUE),
+            occu.upr.mn=mean(occu.upr.mn, na.rm=TRUE),
+            det.mn.mn=mean(det.mn.mn, na.rm=TRUE),
+            det.mn.sd=sd(det.mn.mn, na.rm=TRUE),
+            det.lwr.mn=mean(det.lwr.mn, na.rm=TRUE),
+            det.upr.mn=mean(det.upr.mn, na.rm=TRUE),
+            bootstraps=n()) %>% 
+  ungroup() %>% 
+  mutate(model="null") 
+
+mod.10.cov.pred <- rbindlist(mod.10.cov.pred.list2) %>% 
+  dplyr::filter(!is.na(occu.mn.mn)) %>% 
+  group_by(length, visit) %>% 
+  summarize(occu.mn.mn=mean(occu.mn.mn, na.rm=TRUE),
+            occu.mn.sd=sd(occu.mn.mn, na.rm=TRUE),
+            occu.lwr.mn=mean(occu.lwr.mn, na.rm=TRUE),
+            occu.upr.mn=mean(occu.upr.mn, na.rm=TRUE),
+            det.mn.mn=mean(det.mn.mn, na.rm=TRUE),
+            det.mn.sd=sd(det.mn.mn, na.rm=TRUE),
+            det.lwr.mn=mean(det.lwr.mn, na.rm=TRUE),
+            det.upr.mn=mean(det.upr.mn, na.rm=TRUE),
+            bootstraps=n()) %>% 
+  ungroup() %>% 
+  mutate(model="cov") 
+
+mod.10.pred <- rbind(mod.10.cov.pred, mod.10.null.pred)
+
+write.csv(mod.10.pred, "UnrestrictedModelResults.csv", row.names = FALSE)
+
+#SECTION 6. Canadian Nightjar Survey analysis----
+
+#6a. Occupancy models-----
 #Set number of bootstraps  
 boot <- 100
 
@@ -1761,17 +2029,17 @@ ggplot(mod.cns.pred) +
   #  xlim(c(1,10)) +
   ylim(c(0,1)) +
   my.theme
-  
+
 summary.cns.sum <- summary.cns %>% 
   group_by(length, visit, boot) %>% 
   summarize(sites = sum(Occupied)/32) %>% 
   ungroup()
 
 ggplot(summary.cns.sum, aes(x=length, y=sites)) +
-    geom_jitter() +
+  geom_jitter() +
   geom_smooth(method="loess")
 
-#Option B: Just pull summary results from previous constrained analysis----
+#6b: Correction factors----
 summary.cns.sum <- summary.sum %>% 
   dplyr::filter(cov=="constrained",
                 visit==1)
@@ -1783,7 +2051,7 @@ ggplot(summary.cns.sum, aes(x=length, y=sites)) +
 mod.cns <- lm(sites ~ length, data=summary.cns.sum)
 pred.cns <- data.frame(predict(mod.cns, newdata=data.frame(length=6), se.fit=TRUE)) %>% 
   mutate(offset.rec = 20/17,
-         offset.aru = 1/0.75,
+         offset.aru = (1/0.75)^2,
          p.adj = fit*offset.rec*offset.aru,
          lwr.adj = p.adj - se.fit*1.96*offset.rec*offset.aru,
          upr.adj = p.adj + se.fit*1.96*offset.rec*offset.aru)
