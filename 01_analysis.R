@@ -1418,7 +1418,8 @@ ggplot(summary, aes(x=visit, y=DetsPerMinute, colour=factor(length), linetype=co
 summary.sum <- summary %>% 
   group_by(cov, length, visit, boot) %>% 
   summarize(sites = sum(Occupied)/32) %>% 
-  ungroup()
+  ungroup() %>% 
+  mutate(minutes = length*visit)
 
 summary.sum.any <- summary.sum %>% 
   dplyr::filter(cov=="all")
@@ -1470,7 +1471,7 @@ ggplot(pred.glmm) +
 
 write.csv(pred.glmm, "Figures/GLMMPredictions.csv", row.names = FALSE)
 
-#4cii. Logistic growth curve for unconstrained only----
+#4cii. Logistic growth curve for unconstrained by # visits----
 length <- c(1:5)
 visit <- c(1:30, 40, 50, 60, 70, 80, 90, 100)
 
@@ -1510,7 +1511,7 @@ for(i in 1:length(length)){
 
 mod.cumu.any.visit <- rbindlist(mod.cumu.any.visit.list)
 pred.any.visit <- rbindlist(pred.any.visit.list)
-pred.asym <- rbindlist(pred.asym.list)
+pred.asym<- rbindlist(pred.asym.list)
 
 ggplot() +
   geom_jitter(data=summary.sum.any, aes(x=visit, y=sites, group=factor(length))) +
@@ -1518,12 +1519,136 @@ ggplot() +
   geom_vline(data=pred.asym, aes(xintercept=n, colour=factor(length)), linetype="dashed") +
   ylim(c(0,1))
 
-write.csv(pred.any.visit, "NLSPredictions.csv", row.names = FALSE)
-write.csv(summary.sum.any, "NLSData.csv", row.names = FALSE)
-write.csv(pred.asym, "NLSAsymptotes.csv", row.names = FALSE)
+pred.asym.visit <- pred.asym %>% 
+  mutate(minutes = n*length)
+
+write.csv(pred.any.visit, "NLSPredictions_Visits.csv", row.names = FALSE)
+write.csv(summary.sum.any, "NLSData_Visits.csv", row.names = FALSE)
+write.csv(pred.asym.visit, "NLSAsymptotes_Visits.csv", row.names = FALSE)
+
+#4ciii. Logistic growth curve for unconstrained by total minutes----
+length <- c(1:5)
+visit <- c(1:30, 40, 50, 60, 70, 80, 90, 100)
+
+#For each recording length
+mod.cumu.any.visit.list <- list()
+pred.any.visit.list <- list()
+pred.asym.list <- list()
+for(i in 1:length(length)){
+  
+  length.i <- length[i]
+  
+  summary.sum.any.i <- summary.sum.any %>% 
+    dplyr::filter(length==length.i)
+  
+  mod.cumu.any.i <- nls(sites ~ SSlogis(minutes, Asym, xmid, scal), data = summary.sum.any.i)
+  mod.cumu.any.visit.list[[i]] <- data.frame(summary(mod.cumu.any.i)$coefficients) %>% 
+    mutate(length=length[i],
+           var=row.names(summary(mod.cumu.any.i)$coefficients))
+  
+  #Fit growth curve to new data
+  newdat <- data.frame(minutes=seq(min(summary.sum.any.i$minutes), max(summary.sum.any.i$minutes),
+                                 length.out = 100))
+  
+  pred.any.visit.list[[i]] <- data.frame(
+    r=predict(newdata = newdat, object = mod.cumu.any.i),
+    minutes=newdat$minutes) %>% 
+    mutate(length=length[i])
+  
+  #Find asymptote
+  asym <- round(environment(mod.cumu.any.i[["m"]][["fitted"]])[["env"]][["Asym"]], 3)
+  ls.sum <- pred.any.visit.list[[i]] %>%
+    mutate(r = round(r, digits = 3)) %>% filter(r >= 0.99 * asym)
+  pred.asym.list[[i]] <- data.frame(asym=asym,
+                                    n = round(min(ls.sum$minutes)),
+                                    length=length[i])
+  
+}
+
+mod.cumu.any.visit <- rbindlist(mod.cumu.any.visit.list)
+pred.any.visit <- rbindlist(pred.any.visit.list)
+pred.asym <- rbindlist(pred.asym.list)
+
+ggplot() +
+  geom_jitter(data=summary.sum.any, aes(x=minutes, y=sites, group=factor(length))) +
+  geom_line(data=pred.any.visit, aes(x=minutes, y=r, colour=factor(length))) +
+  geom_vline(data=pred.asym, aes(xintercept=n, colour=factor(length)), linetype="dashed") +
+  ylim(c(0,1))
+
+pred.asym.minutes <- pred.asym %>% 
+  mutate(visit = n/length)
+
+write.csv(pred.any.visit, "NLSPredictions_Minutes.csv", row.names = FALSE)
+write.csv(summary.sum.any, "NLSData_Minutes.csv", row.names = FALSE)
+write.csv(pred.asym.minutes, "NLSAsymptotes_Minutes.csv", row.names = FALSE)
+
+#Is this the same result as # of visits?
+pred.asym.minutes
+pred.asym.visit
+
+#YES THEY ARE IDENTICAL
+
+#4ciiv. Logistic growth curve for unconstrained by recording length----
+length <- c(1:5)
+visit <- c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+
+#For each recording length
+mod.cumu.any.length.list <- list()
+pred.any.length.list <- list()
+pred.asym.list <- list()
+for(i in 1:length(visit)){
+  
+  visit.i <- visit[i]
+  
+  summary.sum.any.i <- summary.sum.any %>% 
+    dplyr::filter(visit==visit.i)
+  
+  mod.cumu.any.i <- nls(sites ~ SSlogis(length, Asym, xmid, scal), data = summary.sum.any.i)
+  mod.cumu.any.length.list[[i]] <- data.frame(summary(mod.cumu.any.i)$coefficients) %>% 
+    mutate(visit=visit[i],
+           var=row.names(summary(mod.cumu.any.i)$coefficients))
+  
+  #Fit growth curve to new data
+  newdat <- data.frame(length=seq(min(summary.sum.any.i$length), max(summary.sum.any.i$length),
+                                   length.out = 100))
+  
+  pred.any.length.list[[i]] <- data.frame(
+    r=predict(newdata = newdat, object = mod.cumu.any.i),
+    length=newdat$length) %>% 
+    mutate(visit=visit[i])
+  
+  #Find asymptote
+  asym <- round(environment(mod.cumu.any.i[["m"]][["fitted"]])[["env"]][["Asym"]], 3)
+  ls.sum <- pred.any.length.list[[i]] %>%
+    mutate(r = round(r, digits = 3)) %>% filter(r >= 0.99 * asym)
+  pred.asym.list[[i]] <- data.frame(asym=asym,
+                                    n = round(min(ls.sum$length)),
+                                    visit=visit[i])
+  
+}
+
+mod.cumu.any.length <- rbindlist(mod.cumu.any.length.list)
+pred.any.length <- rbindlist(pred.any.length.list)
+pred.asym <- rbindlist(pred.asym.list)
+
+ggplot() +
+  geom_jitter(data=summary.sum.any, aes(x=length, y=sites, group=factor(visit))) +
+  geom_line(data=pred.any.length, aes(x=length, y=r, colour=factor(visit))) +
+  geom_vline(data=pred.asym, aes(xintercept=n, colour=factor(visit)), linetype="dashed") +
+  ylim(c(0,1))
+
+pred.asym.length <- pred.asym %>% 
+  mutate(visit = n/length)
+
+write.csv(pred.any.length, "NLSPredictions_Minutes.csv", row.names = FALSE)
+write.csv(summary.sum.any, "NLSData_Minutes.csv", row.names = FALSE)
+write.csv(pred.asym.length, "NLSAsymptotes_Minutes.csv", row.names = FALSE)
+
 
 #SECTION 5. Recording length----
-#4a. No constraints on covariates----
+#5a. Model----
+
+table(duration$SiteName, duration$Duration)
 
 #Set number of bootstraps  
 boot <- 100
@@ -1787,7 +1912,96 @@ mod.10.cov.pred <- rbindlist(mod.10.cov.pred.list2) %>%
 
 mod.10.pred <- rbind(mod.10.cov.pred, mod.10.null.pred)
 
-write.csv(mod.10.pred, "UnrestrictedModelResults.csv", row.names = FALSE)
+write.csv(mod.10.pred, "RecordingLengthModelResults.csv", row.names = FALSE)
+
+mod.10.pred.boot <- rbindlist(mod.10.null.pred.list2) %>% 
+  dplyr::filter(!is.na(occu.mn.mn)) %>% 
+  mutate(minutes = length*visit)
+
+#Visualize
+ggplot(mod.10.pred) +
+  geom_line(aes(x=length, y=occu.mn.mn, colour=factor(visit))) +
+  facet_wrap(~model)
+
+ggplot(mod.10.pred) +
+  geom_line(aes(x=length, y=det.mn.mn, colour=factor(visit))) +
+  facet_wrap(~model)
+
+ggplot(mod.10.pred.boot) +
+#  geom_point(aes(x=length, y=occu.mn.mn, colour=factor(visit))) +
+  geom_smooth(aes(x=length, y=occu.mn.mn, colour=factor(visit)))
+
+ggplot(mod.10.pred.boot) +
+  #  geom_point(aes(x=length, y=occu.mn.mn, colour=factor(visit))) +
+  geom_smooth(aes(x=length, y=det.mn.mn, colour=factor(visit)))
+
+ggplot(mod.10.pred.boot) +
+  geom_point(aes(x=minutes, y=occu.mn.mn)) +
+  geom_smooth(aes(x=minutes, y=occu.mn.mn, colour=factor(length)))
+
+ggplot(mod.10.pred.boot) +
+  geom_point(aes(x=minutes, y=det.mn.mn)) +
+  geom_smooth(aes(x=minutes, y=det.mn.mn, colour=factor(length)))
+
+#5b. NLS for recording length----
+
+summary.sum.10 <- summary.10 %>% 
+  group_by(length, visit, boot) %>% 
+  summarize(sites = sum(Occupied)/12) %>% 
+  ungroup()
+
+length <- c(1:10)
+visit <- seq(1, 100, 10)
+
+mod.10.visit.list <- list()
+pred.10.visit.list <- list()
+pred.10.asym.list <- list()
+for(i in 1:length(visit)){
+  
+  visit.i <- visit[i]
+  
+  dat.i <- summary.sum.10 %>% 
+    dplyr::filter(visit==visit.i)
+  
+  mod.10.i <- nls(sites ~ SSlogis(length, Asym, xmid, scal), data = dat.i)
+  mod.10.visit.list[[i]] <- data.frame(summary(mod.10.i)$coefficients) %>% 
+    mutate(length=length[i],
+           var=row.names(summary(mod.10.i)$coefficients))
+  
+  #Fit growth curve to new data
+  newdat <- data.frame(length=seq(min(dat.i$length), max(dat.i$length),
+                                 length.out = 100))
+  
+  pred.10.visit.list[[i]] <- data.frame(
+    r=predict(newdata = newdat, object = mod.10.i),
+    length=newdat$length) %>% 
+    mutate(visit=visit[i])
+  
+  #Find asymptote
+  asym <- round(environment(mod.10.i[["m"]][["fitted"]])[["env"]][["Asym"]], 3)
+  ls.sum <- pred.10.visit.list[[i]] %>%
+    mutate(r = round(r, digits = 3)) %>% filter(r >= 0.99 * asym)
+  pred.10.asym.list[[i]] <- data.frame(asym=asym,
+                                    n = round(min(ls.sum$length)),
+                                    visit=visit[i])
+  
+}
+
+mod.10.visit <- rbindlist(mod.10.visit.list)
+pred.10.visit <- rbindlist(pred.10.visit.list)
+pred.10.asym <- rbindlist(pred.10.asym.list)
+
+ggplot() +
+  geom_jitter(data=summary.sum.10, aes(x=length, y=sites, colour=factor(visit))) +
+  geom_line(data=pred.10.visit, aes(x=length, y=r, colour=factor(visit))) +
+  geom_vline(data=pred.10.asym, aes(xintercept=n, colour=factor(visit)), linetype="dashed") +
+  ylim(c(0,1))
+
+write.csv(pred.10.visit, "NLSRecordingLengthPredictions.csv", row.names = FALSE)
+write.csv(summary.sum.10, "NLSRecordingLengthData.csv", row.names = FALSE)
+write.csv(pred.10.asym, "NLSRecordingLengthAsymptotes.csv", row.names = FALSE)
+
+#Conclusion: detectability does not asymptote within 10 minutes
 
 #SECTION 6. Canadian Nightjar Survey analysis----
 
