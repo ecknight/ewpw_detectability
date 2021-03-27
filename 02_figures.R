@@ -25,6 +25,7 @@ library(patchwork)
 library(grid)
 library(ggspatial)
 library(ggsn)
+library(scales)
 
 my.theme <- theme_classic() +
   theme(text=element_text(size=12, family="Arial"),
@@ -399,7 +400,8 @@ plot.occu <- ggplot(mod.pred) +
   facet_wrap(~cov, scales="free_x") +
   theme(legend.position = "none",
         strip.background = element_blank(),
-        strip.text.x = element_blank())
+        strip.text.x = element_blank()) +
+  scale_x_continuous(breaks= pretty_breaks())
 plot.occu
 
 plot.det <- ggplot(mod.pred) +
@@ -414,7 +416,8 @@ plot.det <- ggplot(mod.pred) +
   ylim(c(0,1)) +
   my.theme +
   facet_wrap(~cov, scales="free_x") +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  scale_x_continuous(breaks= pretty_breaks())
 plot.det
 
 plot.legend <- ggplot(summary.sum) +
@@ -495,8 +498,7 @@ plot.nls.length <- ggplot() +
 
 ggsave(grid.arrange(plot.nls.visit, plot.nls.length, ncol=2), file="Figures/Fig7CumulativeProbabilityNLS.jpeg", height=4, width=10, units="in", device="jpeg")
 
-#Table 2. NLS results
-pred.asym.visit <- read.csv("NLSAsymptotes_Visits.csv")
+View(pred.asym.visit)
 
 
 #Summary stats
