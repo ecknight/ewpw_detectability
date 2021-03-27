@@ -458,26 +458,46 @@ plot.glmm <- ggplot(pred.glmm) +
 ggsave(plot.glmm, file="Figures/Fig6CumulativeProbabilityComparison.jpeg", height=4, width=6, units="in", device="jpeg")
 
 #Figure 7. Logistic Growth curve----
-
-pred.any.visit <- read.csv("NLSPredictions.csv")
 summary.sum.any <- read.csv("NLSData.csv")
-pred.asym <- read.csv("NLSAsymptotes.csv") %>% 
-  rbind(data.frame(asym=rep(0,5), n=read.csv("NLSAsymptotes.csv")$n, length=c(1:5))) %>% 
+
+pred.any.visit <- read.csv("NLSPredictions_Visits.csv")
+pred.asym.visit <- read.csv("NLSAsymptotes_Visits.csv") %>% 
+  rbind(data.frame(asym=rep(0,5), n=read.csv("NLSAsymptotes_Visits.csv")$n, length=c(1:5), minutes=n*length)) %>% 
   mutate(linetype="Sample size for asymptote",
          asym.99 = asym*0.99)
 
-plot.nls <- ggplot() +
+plot.nls.visit <- ggplot() +
   geom_jitter(data=summary.sum.any, aes(x=visit, y=sites, colour=factor(length))) +
   geom_line(data=pred.any.visit, aes(x=visit, y=r, colour=factor(length))) +
-  geom_line(data=pred.asym, aes(x=n, y=asym.99, colour=factor(length), linetype=linetype)) +
+  geom_line(data=pred.asym.visit, aes(x=n, y=asym.99, colour=factor(length), linetype=linetype)) +
   scale_colour_nord("aurora", name="Recording length\n(minutes)") + 
   scale_linetype_manual(name="", labels=c("Sample size\nfor asymptote"), values=c("dashed")) +
   ylim(c(0,1)) +
   xlab("Number of recordings") +
   ylab("Cumulative proportion of sites with detections") +
   my.theme
+plot.nls.visit
 
-ggsave(plot.nls, file="Figures/Fig7CumulativeProbabilityNLS.jpeg", height=4, width=6, units="in", device="jpeg")
+pred.any.length <- read.csv("NLSPredictions_Length.csv")
+summary.sum.any.length <- summary.sum.any %>% 
+  dplyr::filter(visit %in% unique(pred.any.length$visit))
+
+plot.nls.length <- ggplot() +
+  geom_jitter(data=summary.sum.any.length, aes(x=length, y=sites, colour=factor(visit))) +
+  geom_line(data=pred.any.length, aes(x=length, y=r, colour=factor(visit))) +
+  scale_colour_nord("aurora", name="Number of\nrecordings") + 
+  scale_linetype_manual(name="", labels=c("Sample size\nfor asymptote"), values=c("dashed")) +
+  ylim(c(0,1)) +
+  xlab("Recording length (minutes)") +
+  ylab("") +
+  my.theme
+#plot.nls.length
+
+ggsave(grid.arrange(plot.nls.visit, plot.nls.length, ncol=2), file="Figures/Fig7CumulativeProbabilityNLS.jpeg", height=4, width=10, units="in", device="jpeg")
+
+#Table 2. NLS results
+pred.asym.visit <- read.csv("NLSAsymptotes_Visits.csv")
+
 
 #Summary stats
 mod.pred %>% 

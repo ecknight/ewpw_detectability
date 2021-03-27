@@ -1411,9 +1411,9 @@ summary <- rbind(summary.any %>%
   mutate(DetsPerVisit = Occupied_minutes/visit,
          DetsPerMinute=DetsPerVisit/length)
 
-ggplot(summary, aes(x=visit, y=DetsPerMinute, colour=factor(length), linetype=cov)) +
-  geom_point() +
-  geom_smooth()
+#ggplot(summary, aes(x=visit, y=DetsPerMinute, colour=factor(length), linetype=cov)) +
+#  geom_point() +
+#  geom_smooth()
 
 summary.sum <- summary %>% 
   group_by(cov, length, visit, boot) %>% 
@@ -1423,9 +1423,6 @@ summary.sum <- summary %>%
 
 summary.sum.any <- summary.sum %>% 
   dplyr::filter(cov=="all")
-
-summary.sum.prot <- summary.sum %>% 
-  dplyr::filter(cov=="constrained")
 
 ggplot(summary.sum, aes(x=visit, y=sites, colour=factor(length))) +
   geom_jitter() +
@@ -1438,8 +1435,8 @@ ggplot(summary.sum, aes(x=visit, y=sites, colour=factor(length), linetype=cov)) 
   geom_smooth(method="loess") +
   xlim(c(0,10))
 
-
 write.csv(summary, "SamplingEffortResults_Summary.csv", row.names = FALSE)
+write.csv(summary.sum.any, "NLSData.csv", row.names = FALSE)
 
 #4c. Model cumulative probability of detection----
 
@@ -1523,72 +1520,9 @@ pred.asym.visit <- pred.asym %>%
   mutate(minutes = n*length)
 
 write.csv(pred.any.visit, "NLSPredictions_Visits.csv", row.names = FALSE)
-write.csv(summary.sum.any, "NLSData_Visits.csv", row.names = FALSE)
 write.csv(pred.asym.visit, "NLSAsymptotes_Visits.csv", row.names = FALSE)
 
-#4ciii. Logistic growth curve for unconstrained by total minutes----
-length <- c(1:5)
-visit <- c(1:30, 40, 50, 60, 70, 80, 90, 100)
-
-#For each recording length
-mod.cumu.any.visit.list <- list()
-pred.any.visit.list <- list()
-pred.asym.list <- list()
-for(i in 1:length(length)){
-  
-  length.i <- length[i]
-  
-  summary.sum.any.i <- summary.sum.any %>% 
-    dplyr::filter(length==length.i)
-  
-  mod.cumu.any.i <- nls(sites ~ SSlogis(minutes, Asym, xmid, scal), data = summary.sum.any.i)
-  mod.cumu.any.visit.list[[i]] <- data.frame(summary(mod.cumu.any.i)$coefficients) %>% 
-    mutate(length=length[i],
-           var=row.names(summary(mod.cumu.any.i)$coefficients))
-  
-  #Fit growth curve to new data
-  newdat <- data.frame(minutes=seq(min(summary.sum.any.i$minutes), max(summary.sum.any.i$minutes),
-                                 length.out = 100))
-  
-  pred.any.visit.list[[i]] <- data.frame(
-    r=predict(newdata = newdat, object = mod.cumu.any.i),
-    minutes=newdat$minutes) %>% 
-    mutate(length=length[i])
-  
-  #Find asymptote
-  asym <- round(environment(mod.cumu.any.i[["m"]][["fitted"]])[["env"]][["Asym"]], 3)
-  ls.sum <- pred.any.visit.list[[i]] %>%
-    mutate(r = round(r, digits = 3)) %>% filter(r >= 0.99 * asym)
-  pred.asym.list[[i]] <- data.frame(asym=asym,
-                                    n = round(min(ls.sum$minutes)),
-                                    length=length[i])
-  
-}
-
-mod.cumu.any.visit <- rbindlist(mod.cumu.any.visit.list)
-pred.any.visit <- rbindlist(pred.any.visit.list)
-pred.asym <- rbindlist(pred.asym.list)
-
-ggplot() +
-  geom_jitter(data=summary.sum.any, aes(x=minutes, y=sites, group=factor(length))) +
-  geom_line(data=pred.any.visit, aes(x=minutes, y=r, colour=factor(length))) +
-  geom_vline(data=pred.asym, aes(xintercept=n, colour=factor(length)), linetype="dashed") +
-  ylim(c(0,1))
-
-pred.asym.minutes <- pred.asym %>% 
-  mutate(visit = n/length)
-
-write.csv(pred.any.visit, "NLSPredictions_Minutes.csv", row.names = FALSE)
-write.csv(summary.sum.any, "NLSData_Minutes.csv", row.names = FALSE)
-write.csv(pred.asym.minutes, "NLSAsymptotes_Minutes.csv", row.names = FALSE)
-
-#Is this the same result as # of visits?
-pred.asym.minutes
-pred.asym.visit
-
-#YES THEY ARE IDENTICAL
-
-#4ciiv. Logistic growth curve for unconstrained by recording length----
+#4ciii. Logistic growth curve for unconstrained by recording length----
 length <- c(1:5)
 visit <- c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
 
@@ -1640,10 +1574,8 @@ ggplot() +
 pred.asym.length <- pred.asym %>% 
   mutate(visit = n/length)
 
-write.csv(pred.any.length, "NLSPredictions_Minutes.csv", row.names = FALSE)
-write.csv(summary.sum.any, "NLSData_Minutes.csv", row.names = FALSE)
-write.csv(pred.asym.length, "NLSAsymptotes_Minutes.csv", row.names = FALSE)
-
+write.csv(pred.any.length, "NLSPredictions_Length.csv", row.names = FALSE)
+write.csv(pred.asym.length, "NLSAsymptotes_Length.csv", row.names = FALSE)
 
 #SECTION 5. Recording length----
 #5a. Model----
@@ -1944,7 +1876,6 @@ ggplot(mod.10.pred.boot) +
   geom_smooth(aes(x=minutes, y=det.mn.mn, colour=factor(length)))
 
 #5b. NLS for recording length----
-
 summary.sum.10 <- summary.10 %>% 
   group_by(length, visit, boot) %>% 
   summarize(sites = sum(Occupied)/12) %>% 
@@ -1997,9 +1928,9 @@ ggplot() +
   geom_vline(data=pred.10.asym, aes(xintercept=n, colour=factor(visit)), linetype="dashed") +
   ylim(c(0,1))
 
-write.csv(pred.10.visit, "NLSRecordingLengthPredictions.csv", row.names = FALSE)
-write.csv(summary.sum.10, "NLSRecordingLengthData.csv", row.names = FALSE)
-write.csv(pred.10.asym, "NLSRecordingLengthAsymptotes.csv", row.names = FALSE)
+write.csv(pred.10.visit, "NLSPredictions_Lengths.csv", row.names = FALSE)
+write.csv(summary.sum.10, "NLSData_Lengths.csv", row.names = FALSE)
+write.csv(pred.10.asym, "NLSAsymptotes_Lengths.csv", row.names = FALSE)
 
 #Conclusion: detectability does not asymptote within 10 minutes
 
@@ -2261,6 +2192,9 @@ summary.cns.sum <- summary.sum %>%
 ggplot(summary.cns.sum, aes(x=length, y=sites)) +
   geom_jitter() +
   geom_smooth(method="loess")
+
+
+#TO DO: FIGURE OUT OFFSETS
 
 mod.cns <- lm(sites ~ length, data=summary.cns.sum)
 pred.cns <- data.frame(predict(mod.cns, newdata=data.frame(length=6), se.fit=TRUE)) %>% 
