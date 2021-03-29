@@ -241,15 +241,22 @@ sd(detections.rec$Num_detects)
 
 #Summarize by site
 detections.site <- df_analysis %>% 
-  group_by(Year, SiteName) %>% 
+  group_by(Year, SiteName, Recording) %>% 
   summarize(DetectionMinutes = sum(Occupied),
             Num_detects = sum(Num_detects),
+            DetectionRecordings = ifelse(DetectionMinutes > 0, 1, 0)) %>% 
+  group_by(Year, SiteName) %>% 
+  summarize(Num_detects = sum(Num_detects),
+            DetectionMinutes = sum(DetectionMinutes),
+            DetectionRecordings = sum(DetectionRecordings),
             Recordings=n()) %>% 
   ungroup() %>% 
   left_join(recordings.sum) %>% 
   mutate(Occupied = ifelse(DetectionMinutes > 0, 1, 0),
          DetectsPerOccuMinute = Num_detects/Duration.hr,
          DetectsPerRecMinute = Num_detects/Recordings*5)
+
+hist(detections.site$DetectionRecordings)
 
 #Detections per minute of occupied recording at occupied sites
 detections.site %>% 
@@ -263,6 +270,12 @@ detections.site %>%
   dplyr::select(DetectsPerRecMinute) %>% 
   summary()
 sd(detections.site$DetectsPerRecMinute)
+
+#Specific detections for sites with few detections
+detections.summary <- detections.rec %>% 
+  dplyr::filter(Num_detects > 0) %>% 
+  dplyr::select(Year, SiteName, Recording) %>% 
+  left_join(detections.site)
 
 #SECTION 3: Preliminary detectability analysis####
 
