@@ -106,7 +106,7 @@ range <- read_sf("/Volumes/ECK004/GIS/Misc/BirdLifeRanges/EWPW.shp") %>%
 map.nam <- ggplot() +
   geom_polygon(data=nam.eq, aes(x=X, y=Y, group=group), colour = "gray85", fill = "gray75", size=0.3) +
   geom_sf(data=range, aes(fill=SCINAME), fill="grey50", colour="gray85") +
-  geom_text(label="★", aes(x=X, y=Y), size=10, family = "HiraKakuPro-W3", data=area.eq.center, colour="black") +
+  geom_text(label="★", aes(x=X, y=Y), size=6, family = "HiraKakuPro-W3", data=area.eq.center, colour="black") +
   xlim(c(-4000000, 3000000)) +
   coord_sf(datum = NA) +
   xlab("") +
@@ -139,6 +139,12 @@ map_transparent <- matrix(adjustcolor(map,
                           nrow = nrow(map))
 attributes(map_transparent) <- map_attributes
 
+#Weather stations
+weather <- data.frame(name=c("“OTTAWA CDA RCS”, “TRENTON A"),
+                      Latitude = c(45.3825, 44.1189),
+                      Longitude = c(-75.7141, -77.5281),
+                      id=rep("Weather station",2))
+
 #Plot site map
 map.sites <- ggmap(map_transparent) +
   geom_spatial_point(aes(x = Longitude, y = Latitude,
@@ -149,10 +155,16 @@ map.sites <- ggmap(map_transparent) +
                      colour="grey85",
                      size=4,
                      shape=21) +
+  geom_spatial_point(aes(x = Longitude, y = Latitude, colour=id),
+                     data = weather, 
+                     crs=4326,
+                     size=4,
+                     shape=23,
+                     fill="black") +
   geom_text(label="Lake Ontario", aes(x=-77.5, y=43.6), size=5, colour="black") +
-  ggspatial::annotation_north_arrow(location = "tr",
+  ggspatial::annotation_north_arrow(location = "bl",
                                     style = ggspatial::north_arrow_orienteering(fill = c("grey80", "grey20"), line_col = "grey20")) +
-  ggsn::scalebar(x.min = -76.9, x.max = -76, 
+  ggsn::scalebar(x.min = -76.5, x.max = -75.6, 
                  y.min = 43.55, y.max = 43.8, 
                  transform=TRUE, model="WGS84",
                  dist=25, dist_unit="km",
@@ -160,15 +172,16 @@ map.sites <- ggmap(map_transparent) +
                  box.color="grey20",
                  height=0.1,
                  st.bottom=TRUE, st.dist=0.15) +
-  xlim(c(-78.1, -75.9)) +
+  xlim(c(-78.1, -75.5)) +
   ylim(c(43.5, 45.5)) +
   scale_fill_manual(values=c("darkgoldenrod1", "tomato3"), name="Year surveyed") +
+  scale_colour_manual(values=c("grey85"), name="") +
   my.theme +
   xlab("") +
   ylab("") +
   theme(plot.margin = unit(c(0,0,0,0), "cm"),
         legend.position = "bottom")
-#map.sites
+map.sites
 
 #1c. Put together----
 plot.sa <- map.sites +
