@@ -197,9 +197,7 @@ ggsave(file="Figures/Figure1StudyArea.jpeg", height=8, width=6, units="in", devi
 
 #Figure 3. Evaluation results####
 
-results.eval <- r.rec %>% 
-  rename(rpres=r) %>% 
-  full_join(results.call) %>% 
+results.eval <- read.csv("RecognizerEvaluationResults.csv") %>% 
   dplyr::select(score, p, r, rpres) %>% 
   pivot_longer(cols=p:rpres, names_to="metric", values_to="value")
 
@@ -207,13 +205,12 @@ plot.eval <- ggplot(results.eval) +
   geom_line(aes(x=score, y=value, colour=metric), size=1) +
   geom_vline(aes(xintercept=60), linetype="dashed") +
   scale_colour_manual(values=c("darkgoldenrod3", "#A8A8A8", "tomato4"), name="Evaluation metric",
-                      labels=c("Precision", "Recall", "Presence-absence recall")) +
+                      labels=c("Precision", "Recall", "Presence-absence recall\n(per 5-minute recording)")) +
   xlab("Score threshold") +
   ylab("Evaluation metric value") +
   ylim(0, 1) +
   my.theme
 plot.eval
-
 
 ggsave(plot.eval, file="Figures/Fig3Evaluation.jpg", width=7, height=4, units="in", device="jpeg")
 
@@ -255,9 +252,9 @@ dat.test %>%
 20/17 #Offset
 
 #Table 1. Model selection results----
-temp.dredge.all <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/TemporalCovariatesModelSelection.csv")
+temp.dredge.all <- read.csv("TemporalCovariatesModelSelection.csv")
 
-temp.dredge.raw <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/TemporalCovariatesModelSelection_raw.csv") %>% 
+temp.dredge.raw <- read.csv("TemporalCovariatesModelSelection_raw.csv") %>% 
   arrange(mod, boot) %>% 
   dplyr::filter(mod %in% c(27:32))
 
@@ -279,10 +276,11 @@ temp.dredge.summary <- temp.dredge.raw %>%
   ungroup() %>% 
   left_join(temp.dredge.top) %>% 
   arrange(-wt.mn)
+temp.dredge.summary
 
-weather.dredge.all <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/WeatherCovariatesModelSelection.csv")
+weather.dredge.all <- read.csv("WeatherCovariatesModelSelection.csv")
 
-weather.dredge.raw <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/WeatherCovariatesModelSelection_raw.csv") %>% 
+weather.dredge.raw <- read.csv("WeatherCovariatesModelSelection_raw.csv") %>% 
   arrange(mod, boot) %>% 
   dplyr::filter(mod %in% c(61, 62, 64, 34, 58, 57))
 
@@ -309,7 +307,7 @@ View(weather.dredge.summary)
 
 #Figure 4. Covariate effects----
 
-mod.final.pred <- read.csv("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/FinalModelPredictions.csv")
+mod.final.pred <- read.csv("FinalModelPredictions.csv")
 mod.final.pred.sum <- mod.final.pred %>% 
   group_by(plot, moonalt, suntime, doy, wind, temp, psd2, s2n2) %>% 
   summarize(det.mn = mean(Det),
@@ -379,14 +377,14 @@ plot.pred <- gridExtra::grid.arrange(plot.moon, plot.suntime, plot.day, plot.win
                                      ncol=4, nrow=2,
                                      left = textGrob("EWPW detectability", rot = 90, vjust = 1))
 
-ggsave(plot.pred, file="/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Analysis/Figures/Fig4CovariatePredictions.jpg", width=12, height=6, units="in", device="jpeg")
+ggsave(plot.pred, file="Figures/Fig4CovariatePredictions.jpg", width=12, height=6, units="in", device="jpeg")
 
 #Figure 5. Sampling effects----
 
-mod.pred <- read.csv("Figures/SamplingEffortResults.csv") %>% 
+mod.pred <- read.csv("SamplingEffortResults.csv") %>% 
   dplyr::filter(model=="cov")
 
-summary <- read.csv("Figures/SamplingEffortResults_summary.csv")
+summary <- read.csv("SamplingEffortResults_summary.csv")
 
 summary.sum <- summary %>% 
   group_by(cov, length, visit, boot) %>% 
@@ -458,7 +456,7 @@ ggsave(file="Figures/Fig5OccupancySamplingEffort.jpeg", height=8, width=8, units
 
 #Figure 6. Cumulative detection probability comparison----
 
-pred.glmm <- read.csv("Figures/GLMMPredictions.csv")
+pred.glmm <- read.csv("GLMMPredictions.csv")
 
 plot.glmm <- ggplot(pred.glmm) +
   geom_ribbon(aes(x=visit, ymin=lwr, ymax=upr, fill=factor(length)), alpha=0.2, data=subset(pred.glmm, cov=="all")) +
@@ -480,7 +478,8 @@ pred.any.visit <- read.csv("NLSPredictions_Visits.csv")
 pred.asym.visit <- read.csv("NLSAsymptotes_Visits.csv") %>% 
   rbind(data.frame(asym=rep(0,5), n=read.csv("NLSAsymptotes_Visits.csv")$n, length=c(1:5), minutes=n*length)) %>% 
   mutate(linetype="Sample size for asymptote",
-         asym.99 = asym*0.99)
+         asym.99 = asym*0.99) %>% 
+  dplyr::filter(n!="Inf")
 
 plot.nls.visit <- ggplot() +
   geom_jitter(data=summary.sum.any, aes(x=visit, y=sites, colour=factor(length))) +
@@ -509,7 +508,7 @@ plot.nls.length <- ggplot() +
   my.theme
 #plot.nls.length
 
-ggsave(grid.arrange(plot.nls.visit, plot.nls.length, ncol=2), file="Figures/Fig7CumulativeProbabilityNLS.jpeg", height=4, width=10, units="in", device="jpeg")
+ggsave(grid.arrange(plot.nls.visit, plot.nls.length, ncol=2, widths=c(7,6)), file="Figures/Fig7CumulativeProbabilityNLS.jpeg", height=4, width=10, units="in", device="jpeg")
 
 View(pred.asym.visit)
 
@@ -522,3 +521,43 @@ mod.pred %>%
 mod.pred %>% 
   group_by(cov) %>% 
   summarize(mean=mean(occu.mn.mn))
+
+
+#Appendix 3. RSL----
+
+r.eval <- read.csv("RecognizerEvaluationResults.csv")
+
+plot.rsl1 <- ggplot(r.eval) +
+  geom_ribbon(aes(x=r, ymax=rsltp + rslsdtp, ymin=rsltp - rslsdtp), fill="grey85", colour="grey85") +
+  geom_line(aes(x=r, y=rsltp), colour="grey30") +
+  geom_point(aes(x=r, y=rsltp, fill=score), shape=21, colour="grey30", size=3) +
+  scale_fill_viridis_c(name="Score threshold", breaks=c(20, 50, 80)) +
+  xlab("Recall") +
+  ylab("Relative sound level (RSL)") +
+  my.theme +
+  theme(legend.position = "bottom",
+        axis.title.y = element_text(vjust = 10),
+        plot.margin = margin(l=30))
+plot.rsl1
+
+legend <- get_legend(plot.rsl1)
+
+plot.rsl <- plot.rsl1 + theme(legend.position="none")
+
+plot.level <- ggplot(r.eval) +
+  geom_ribbon(aes(x=r, ymax=leveltp + levelsdtp, ymin=leveltp - levelsdtp), fill="grey85", colour="grey85") +
+  geom_line(aes(x=r, y=leveltp), colour="grey30") +
+  geom_point(aes(x=r, y=leveltp, fill=score), shape=21, colour="grey30", size=3) +
+  scale_fill_viridis_c(name="Score threshold") +
+  xlab("Recall") +
+  scale_y_continuous(name="Loudness ranking", breaks=c(5, 6, 7, 8),
+                     labels = c("Medium", "Medium-loud", "Loud", "Very loud")) +
+  my.theme + 
+  theme(axis.text.y=element_text(angle=45),
+        legend.position="none",
+        axis.title.y = element_text(vjust = -5),
+        plot.margin = margin(l=-10))
+#plot.level
+
+
+ggsave(grid.arrange(plot.level, plot.rsl, legend, nrow=3, heights=c(4,4,1)), file="Figures/FigA3.1Loudness.jpeg", device="jpeg", height = 9, width = 6, unit="in")
