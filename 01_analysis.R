@@ -47,11 +47,34 @@ load("Analysisv7_workspace.Rdata")
 ##1a. Prepare data####
 
 #Read in and summarize benchmark data (human listener processed)
-path <- "/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/"
+path <- "/Users/ellyknight/Documents/UoA/Projects/Projects/EWPW/"
 bench <- read_excel(paste0(path, "Data/TestDatasetCallCount.xlsx"),
-                    col_types = c("text", "text", "text", "numeric", "text", "text")) %>% 
+                    col_types = c("text", "text", "numeric", "numeric", "text", "numeric", "numeric", "numeric", "text", "text")) %>% 
   mutate(File=paste0(File, ".wav")) %>% 
-  rename(file=File)
+  rename(file=File) %>% 
+  mutate(LevelNo = case_when(Level=="barely perceptible" ~ 1,
+                             Level %in% c("barely perceptible to medium", "barely perceptible to quiet", "quiet to barely perceptible") ~ 2,
+                             Level=="quiet" ~ 3,
+                             Level=="quiet to medium" ~ 4,
+                             Level=="medium" ~ 5,
+                             Level=="medium to loud" ~ 6,
+                             Level== "loud" ~7,
+                             Level=="very loud" ~ 8)) %>% 
+  mutate(starttime = 60*StartMin + StartSec,
+         endtime = 60*EndMin + EndSec,
+         totalmins = endtime - starttime + 1) %>% 
+  dplyr::filter(StartMin < 5) %>% 
+  as.data.frame() %>% 
+  mutate(id = row_number())
+
+bench.sum <- bench %>% 
+  group_by(LevelNo) %>% 
+  summarize(bouts = n(),
+            duration = sum(totalmins)/60,
+            calls = sum(Count)) %>% 
+  ungroup()
+
+write.csv(bench.sum, "LoudnessRankingSummary.csv", row.names=FALSE)
 
 bench.rec <- bench %>% 
   dplyr::select(file) %>% 
@@ -59,14 +82,30 @@ bench.rec <- bench %>%
 
 call <- sum(bench$Count)
 
+bench.level <- bench %>% 
+  group_by(LevelNo) %>% 
+  summarize(calls = sum(Count))
+
+bench.slice <- as.data.frame(lapply(bench, rep, bench$totalmins + 2)) %>% 
+  group_by(id) %>% 
+  mutate(row = row_number(),
+         time = starttime + row - 2) %>% 
+  ungroup() %>% 
+  dplyr::select(id, file, Count, LevelNo, time)
+
 #Read in raw validated data
-dat.test <- read.table("/Users/ellyknight/Documents/UoA/Data/AutomatedProcessing/EWPW/Processing/Test_EWPWV1_0_20_results_validated.txt",
+dat.test <- read.table("/Users/ellyknight/Documents/UoA/Projects/Projects/EWPW/Processing/Test_EWPWV1_0_20_results_validated.txt",
                        sep="\t",
                        header=FALSE,
                        col.names = c("filepath", "start", "duration", "rsl", "quality", "score", "recognizer", "validation")) %>% 
   separate(filepath, into=c("f1", "f2", "f3", "f4", "presence", "file"), sep="/", remove=FALSE) %>% 
   separate(file, into=c("aru", "datetext", "timetext", "filetype"), remove=FALSE) %>% 
-  mutate(ewpw=ifelse(validation=="y", 1, 0))
+  mutate(ewpw=ifelse(validation=="y", 1, 0)) %>% 
+  separate(start, into=c("starthour", "startminute", "startsecond"), sep=":", remove=FALSE) %>% 
+  mutate(time = round(60*as.numeric(startminute) + as.numeric(startsecond))) %>% 
+  dplyr::filter(as.numeric(startminute) < 5) %>% 
+  left_join(bench.slice)
+
 
 ##1b. Evaluate for detection####
 
@@ -80,12 +119,21 @@ for(i in 1:length(score)){
   dat.i <- dat.test %>% 
     dplyr::filter(score >= score.i)
   
+  level.i <- dat.i %>% 
+    group_by(ewpw) %>% 
+    summarize(rslsd = sd(rsl),
+              rsl = mean(rsl),
+              level = mean(LevelNo, na.rm=TRUE),
+              levelsd = sd(LevelNo, na.rm=TRUE)) %>% 
+    dplyr::filter(ewpw==1)
+  
   results.i <- dat.i %>% 
     dplyr::summarize(det=sum(ewpw), hit=n()) %>% 
-    mutate(r=det/call, p=det/hit, fp=(hit-det)/hit, tp=det/hit, fn=(call-det)/call, acc=(det-(hit-det))/hit) %>% 
+    mutate(r=det/call, p=det/hit, fp=(hit-det)/hit, tp=det/hit, fn=(call-det)/call, acc=(det-(hit-det))/hit, leveltp = level.i$level, rsltp = level.i$rsl, levelmintp = level.i$levelmin, levelsdtp = level.i$levelsd, rslsdtp = level.i$rslsd) %>% 
     mutate(f=(2*p*r)/(p+r),
            score=score[i]) %>% 
     ungroup()
+
   
   results.call <- rbind(results.call, results.i)
   
@@ -114,8 +162,13 @@ for(i in 1:length(score)){
 
 r.rec <- results.rec %>% 
   group_by(score) %>% 
-  summarize(r=sum(pres.rec)/nrow(bench.rec)) %>% 
+  summarize(rpres=sum(pres.rec)/nrow(bench.rec)) %>% 
   ungroup()
+
+##1d. Put together----
+r.eval <- left_join(results.call, r.rec)
+
+write.csv(r.eval, "RecognizerEvaluationResults.csv", row.names = FALSE)
 
 #SECTION 2. Summary of automated processing####
 
@@ -160,7 +213,7 @@ for(i in 1:nrow(files)){
 val.raw <- rbindlist(val.list) %>% 
   mutate(validation=case_when(is.na(validation) ~ 0,
                               validation %in% c("1", "11", "2", "2 here", "3?", "Minimum 2", "Minimum 3", "3", "4") ~ 1,
-                              validation %in% c("0", "na", "Na", "?") ~ 0)) %>% 
+                              validation %in% c("0", "na", "Na", "?", "") ~ 0)) %>% 
   mutate(filepath = str_replace(filepath, "D:\\\\", "")) %>% 
   mutate(filepath = str_replace(filepath, "E:\\\\", "")) %>% 
   mutate(filepath = str_replace(filepath, "/Volumes/Backup Plus/", "")) %>% 
@@ -225,6 +278,7 @@ write.csv(appendix1, "Appendix1.csv", row.names = FALSE)
 
 #Total # of recording minutes
 sum(appendix1$TotalMinutes)
+sum(appendix1$TotalMinutes)/60
 
 ##2c. Summary of detections####
 
@@ -346,7 +400,6 @@ ggplot(dat, aes(x=band2_psd, y=Occupied)) +
 ggplot(dat, aes(x=band2_s2n, y=Occupied)) +
   geom_hex() + 
   geom_smooth()
-
 
 ##3b. Check for VIF & correlation####
 
@@ -1479,7 +1532,7 @@ ggplot(pred.glmm) +
   geom_line(aes(x=visit, y=pred, colour=factor(length), linetype=cov)) +
   facet_wrap(~cov)
 
-write.csv(pred.glmm, "Figures/GLMMPredictions.csv", row.names = FALSE)
+write.csv(pred.glmm, "GLMMPredictions.csv", row.names = FALSE)
 
 #4cii. Logistic growth curve for unconstrained by # visits----
 length <- c(1:5)
@@ -1495,7 +1548,9 @@ for(i in 1:length(length)){
   summary.sum.any.i <- summary.sum.any %>% 
     dplyr::filter(length==length.i)
   
-  mod.cumu.any.i <- nls(sites ~ SSlogis(visit, Asym, xmid, scal), data = summary.sum.any.i)
+  mod.cumu.any.i <- nls(sites ~ SSasymp(visit, Asym, R0, lrc), data = summary.sum.any.i)
+  #mod.cumu.any.i <- drm(sites ~ visit, fct = DRC.asymReg(), data = summary.sum.any.i)
+  
   mod.cumu.any.visit.list[[i]] <- data.frame(summary(mod.cumu.any.i)$coefficients) %>% 
     mutate(length=length[i],
            var=row.names(summary(mod.cumu.any.i)$coefficients))
@@ -1511,23 +1566,28 @@ for(i in 1:length(length)){
   
   #Find asymptote
   asym <- round(environment(mod.cumu.any.i[["m"]][["fitted"]])[["env"]][["Asym"]], 3)
-  ls.sum <- pred.any.visit.list[[i]] %>%
+  ls.sum.99 <- pred.any.visit.list[[i]] %>%
     mutate(r = round(r, digits = 3)) %>% filter(r >= 0.99 * asym)
+  ls.sum.95 <- pred.any.visit.list[[i]] %>%
+    mutate(r = round(r, digits = 3)) %>% filter(r >= 0.95 * asym)
   pred.asym.list[[i]] <- data.frame(asym=asym,
-                                    n = round(min(ls.sum$visit)),
+                                    n = round(min(ls.sum.99$visit)),
                                     length=length[i])
   
 }
 
 mod.cumu.any.visit <- rbindlist(mod.cumu.any.visit.list)
 pred.any.visit <- rbindlist(pred.any.visit.list)
-pred.asym<- rbindlist(pred.asym.list)
+pred.asym <- rbindlist(pred.asym.list)
 
 ggplot() +
-  geom_jitter(data=summary.sum.any, aes(x=visit, y=sites, group=factor(length))) +
+  geom_jitter(data=summary.sum.any, aes(x=visit, y=sites, colour=factor(length))) +
   geom_line(data=pred.any.visit, aes(x=visit, y=r, colour=factor(length))) +
-  geom_vline(data=pred.asym, aes(xintercept=n, colour=factor(length)), linetype="dashed") +
-  ylim(c(0,1))
+  geom_vline(data=pred.asym, aes(xintercept=n99, colour=factor(length)), linetype="dashed") +
+  geom_vline(data=pred.asym, aes(xintercept=n95, colour=factor(length)), linetype="dotted") +
+  ylim(c(0,1)) + 
+#  facet_wrap(~length) +
+  scale_fill_viridis_c()
 
 pred.asym.visit <- pred.asym %>% 
   mutate(minutes = n*length)
@@ -1550,7 +1610,7 @@ for(i in 1:length(visit)){
   summary.sum.any.i <- summary.sum.any %>% 
     dplyr::filter(visit==visit.i)
   
-  mod.cumu.any.i <- nls(sites ~ SSlogis(length, Asym, xmid, scal), data = summary.sum.any.i)
+  mod.cumu.any.i <- nls(sites ~ SSasymp(length, Asym, R0, lrc), data = summary.sum.any.i)
   mod.cumu.any.length.list[[i]] <- data.frame(summary(mod.cumu.any.i)$coefficients) %>% 
     mutate(visit=visit[i],
            var=row.names(summary(mod.cumu.any.i)$coefficients))
@@ -1566,10 +1626,12 @@ for(i in 1:length(visit)){
   
   #Find asymptote
   asym <- round(environment(mod.cumu.any.i[["m"]][["fitted"]])[["env"]][["Asym"]], 3)
-  ls.sum <- pred.any.length.list[[i]] %>%
+  ls.sum.99 <- pred.any.length.list[[i]] %>%
     mutate(r = round(r, digits = 3)) %>% filter(r >= 0.99 * asym)
+  ls.sum.95 <- pred.any.length.list[[i]] %>%
+    mutate(r = round(r, digits = 3)) %>% filter(r >= 0.95 * asym)
   pred.asym.list[[i]] <- data.frame(asym=asym,
-                                    n = round(min(ls.sum$length)),
+                                    n = round(min(ls.sum.99$length)),
                                     visit=visit[i])
   
 }
@@ -1581,11 +1643,11 @@ pred.asym <- rbindlist(pred.asym.list)
 ggplot() +
   geom_jitter(data=summary.sum.any, aes(x=length, y=sites, group=factor(visit))) +
   geom_line(data=pred.any.length, aes(x=length, y=r, colour=factor(visit))) +
-  geom_vline(data=pred.asym, aes(xintercept=n, colour=factor(visit)), linetype="dashed") +
+  geom_vline(data=pred.asym, aes(xintercept=n99, colour=factor(visit)), linetype="dashed") +
   ylim(c(0,1))
 
 pred.asym.length <- pred.asym %>% 
-  mutate(visit = n/length)
+  mutate(visit95 = n/length)
 
 write.csv(pred.any.length, "NLSPredictions_Length.csv", row.names = FALSE)
 write.csv(pred.asym.length, "NLSAsymptotes_Length.csv", row.names = FALSE)
@@ -2219,3 +2281,17 @@ pred.cns <- data.frame(predict(mod.cns, newdata=data.frame(length=6), se.fit=TRU
 pred.cns
 
 save.image("Analysisv7_workspace.Rdata")
+
+
+#APPENDIX 3: Loudness analysis----
+dat.test.1 <- dat.test %>% 
+  dplyr::filter(ewpw==1) %>% 
+  rename(level=LevelNo)
+
+lm.rsl.1 <- lmer(score ~ rsl + (1|file), data=dat.test.1)
+lm.rsl.0 <- lmer(score ~ 1 + (1|file), data=dat.test.1)
+aictab(list(lm.rsl.1, lm.rsl.0))
+
+lm.level.1 <- lmer(score ~ level + (1|file), data=dat.test.1)
+lm.level.0 <- lmer(score ~ 1 + (1|file), data=dat.test.1)
+aictab(list(lm.level.1, lm.level.0))
