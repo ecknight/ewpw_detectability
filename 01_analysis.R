@@ -235,6 +235,33 @@ fp
 # Precision
 tp/(fp+tp)
 
+#Interrogate false positives
+val.time <- val.raw %>% 
+  separate(Recording, into=c("ID", "datename", "timename"), sep="_", remove=FALSE) %>% 
+  mutate(DateTime = ymd_hms(paste0(datename, str_sub(timename, 1, 6))),
+         doy = yday(DateTime),
+         hour = hour(DateTime))
+
+ggplot(val.time) +
+  geom_histogram(aes(x=doy, colour=factor(validation)))
+
+ggplot(val.time) +
+  geom_histogram(aes(x=hour, colour=factor(validation)))
+
+#Number of false positives at 4 & 5 am (i.e., dawn chorus)
+fp.dawn <- val.time %>% 
+  dplyr::filter(validation==0, hour %in% c(4,5)) %>% 
+  nrow()
+
+fp.dawn/fp
+
+#Precision without dawn chorus
+tp.dawn <- val.time %>% 
+  dplyr::filter(validation==1, hour %in% c(4,5)) %>% 
+  nrow()
+
+(tp - tp.dawn)/((fp-fp.dawn)+(tp-tp.dawn))
+
 ##2b. Recording availability####
 
 #Length and number of recordings per location
