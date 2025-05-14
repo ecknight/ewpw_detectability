@@ -128,7 +128,7 @@ sites.sf <- sites %>%
 area.center <- data.frame(X=-77, Y=44.6)
 
 #Get background data
-register_google(key="AIzaSyCta9P4x7jGNELznpwlx07VZkkLVk3FP4M")
+register_google(key="")
 
 map <- get_map(maptype="satellite", location=area.center, zoom=8, force=TRUE, color="color")
 
